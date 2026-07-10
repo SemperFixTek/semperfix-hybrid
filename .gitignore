@@ -1,0 +1,20 @@
+# WSL temp files
+*.swp
+*.swo
+*.tmp
+
+# Windows ADS metadata
+Zone.Identifier
+
+# VS Code workspace
+.vscode/
+
+# WSL metadata and backups
+*.bak
+*.old
+
+# Logs
+*.log
+
+# Syncthing temp
+.syncthing.tmp
