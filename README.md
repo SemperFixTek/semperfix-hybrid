@@ -28,17 +28,17 @@
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │              WSL2 (Ubuntu)                       │   │
-│  │  All dev toolchains (Python, Node, Rust, Go)    │   │
-│  │  Docker daemon · SSH agent · Git operations     │   │
-│  │  .env files (local) · Compiled artifacts        │   │
+│  │  All dev toolchains (Python, Node, Rust, Go)     │   │
+│  │  Docker daemon · SSH agent · Git operations      │   │
+│  │  .env files (local) · Compiled artifacts         │   │
 │  │                                                  │   │
-│  │  ┌────────────────┐   ┌────────────────────┐    │   │
-│  │  │  OBSIDIAN VAULT│   │   GIT REPOSITORY   │    │   │
-│  │  │  (via Win mount│   │   (GitHub / remote)│    │   │
-│  │  │  Personal notes│   │   Source of truth  │    │   │
-│  │  │  Secrets ref   │   │   for all code &   │    │   │
-│  │  │  Draft docs    │   │   config templates │    │   │
-│  │  └────────────────┘   └────────────────────┘    │   │
+│  │  ┌────────────────┐   ┌────────────────────┐     │   │
+│  │  │  OBSIDIAN VAULT│   │   GIT REPOSITORY   │     │   │
+│  │  │  (via Win mount│   │   (GitHub / remote)│     │   │
+│  │  │  Personal notes│   │   Source of truth  │     │   │
+│  │  │  Secrets ref   │   │   for all code &   │     │   │
+│  │  │  Draft docs    │   │   config templates │     │   │
+│  │  └────────────────┘   └────────────────────┘     │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
