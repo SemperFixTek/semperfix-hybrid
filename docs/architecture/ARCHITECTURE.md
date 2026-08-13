@@ -1,7 +1,7 @@
 # Hybrid Dev Environment — Architecture \& Operations
 
-> \*\*Layers:\*\* Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository  
-> \*\*Paradigm:\*\* Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
+> \\\\\\\*\\\\\\\*Layers:\\\\\\\*\\\\\\\* Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository  
+> \\\\\\\*\\\\\\\*Paradigm:\\\\\\\*\\\\\\\* Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
 
 \---
 
@@ -36,7 +36,7 @@
 │  │  │  OBSIDIAN VAULT│   │   GIT REPOSITORY   │    │   │
 │  │  │  (via Win mount│   │   (GitHub / remote)│    │   │
 │  │  │  Personal notes│   │   Source of truth  │    │   │
-│  │  │  Secrets ref   │   │   for all code \&   │    │   │
+│  │  │  Secrets ref   │   │   for all code \\\\\\\&   │    │   │
 │  │  │  Draft docs    │   │   config templates │    │   │
 │  │  └────────────────┘   └────────────────────┘    │   │
 │  └──────────────────────────────────────────────────┘   │
@@ -81,7 +81,7 @@ The execution layer. All build, run, and test operations happen here.
 /mnt/c/Vault/    # Obsidian Vault (cross-accessible)
 
 # Working directory convention:
-\~/projects/      # All repos cloned here inside WSL fs
+\\\\\\\~/projects/      # All repos cloned here inside WSL fs
 ```
 
 ### 🔐 Obsidian Vault
@@ -159,7 +159,7 @@ New file created
 │   ├── DevEnv/            # This architecture doc's source
 │   ├── Security/          # Cert expiry, SSH key inventory
 │   └── Infrastructure/
-├── 03-Resources/          # Reference material \& research
+├── 03-Resources/          # Reference material \\\\\\\& research
 ├── 04-Archive/            # Completed projects, frozen
 ├── 09-Templates/          # Note templates (PARA, ADR, Runbook)
 └── 99-Meta/               # Vault config, plugin settings
@@ -173,11 +173,11 @@ The Vault stores **named references**, not raw secrets:
 <!-- Vault: 01-Projects/my-api/Secrets-Ref.md -->
 ## API Credentials
 
-- \*\*OpenAI API Key\*\*: Stored in WSL `\~/.env.openai` | Loaded via `direnv`
-- \*\*AWS Access Key\*\*: In `\~/.aws/credentials` (WSL) | Profile: `dev`
-- \*\*DB Password\*\*: 1Password vault item "prod-db-postgres"
+- \\\\\\\*\\\\\\\*OpenAI API Key\\\\\\\*\\\\\\\*: Stored in WSL `\\\\\\\~/.env.openai` | Loaded via `direnv`
+- \\\\\\\*\\\\\\\*AWS Access Key\\\\\\\*\\\\\\\*: In `\\\\\\\~/.aws/credentials` (WSL) | Profile: `dev`
+- \\\\\\\*\\\\\\\*DB Password\\\\\\\*\\\\\\\*: 1Password vault item "prod-db-postgres"
 
-\_Never paste raw values here. This file is NOT gitignored in Vault.\_
+\\\\\\\_Never paste raw values here. This file is NOT gitignored in Vault.\\\\\\\_
 ```
 
 ### Vault–Repo Graduation Workflow
@@ -205,8 +205,8 @@ Use this workflow when migrating files from an existing monolithic layout into t
 git ls-files --others --exclude-standard > /tmp/untracked.txt
 
 # Find potential secrets (broad scan)
-grep -rE '(api\_key|secret|password|token)\\s\*=' . \\
-  --include="\*.py" --include="\*.env" --include="\*.json" \\
+grep -rE '(api\\\\\\\_key|secret|password|token)\\\\\\\\s\\\\\\\*=' . \\\\\\\\
+  --include="\\\\\\\*.py" --include="\\\\\\\*.env" --include="\\\\\\\*.json" \\\\\\\\
   -l > /tmp/secret-candidates.txt
 ```
 
@@ -218,7 +218,7 @@ For each file in the audit:
 # Run interactive classifier (adapt to your setup)
 while IFS= read -r file; do
   echo "FILE: $file"
-  echo "  \[1] Repo  \[2] WSL local  \[3] Vault  \[4] Windows  \[5] Delete"
+  echo "  \\\\\\\[1] Repo  \\\\\\\[2] WSL local  \\\\\\\[3] Vault  \\\\\\\[4] Windows  \\\\\\\[5] Delete"
   read -rp "  Choice: " choice
   echo "$file -> $choice" >> /tmp/classification.log
 done < /tmp/untracked.txt
@@ -232,55 +232,55 @@ git filter-repo --path secrets/ --invert-paths
 
 # 2. Add comprehensive .gitignore
 cat >> .gitignore << 'EOF'
-# Secrets \& local config
+# Secrets \\\\\\\& local config
 .env
-.env.\*
+.env.\\\\\\\*
 !.env.example
 !.env.template
-\*.pem
-\*.key
-\*.p12
-id\_rsa
-id\_ed25519
+\\\\\\\*.pem
+\\\\\\\*.key
+\\\\\\\*.p12
+id\\\\\\\_rsa
+id\\\\\\\_ed25519
 
 # Build artifacts
 dist/
 build/
-\*.egg-info/
-\_\_pycache\_\_/
-\*.pyc
-node\_modules/
+\\\\\\\*.egg-info/
+\\\\\\\_\\\\\\\_pycache\\\\\\\_\\\\\\\_/
+\\\\\\\*.pyc
+node\\\\\\\_modules/
 
 # Local data
-\*.db
-\*.sqlite
-\*.log
-\*.tfstate
-\*.tfstate.backup
+\\\\\\\*.db
+\\\\\\\*.sqlite
+\\\\\\\*.log
+\\\\\\\*.tfstate
+\\\\\\\*.tfstate.backup
 
 # OS / Editor
-.DS\_Store
+.DS\\\\\\\_Store
 Thumbs.db
 .vscode/settings.json
 EOF
 
 # 3. Commit the .gitignore first
-git add .gitignore \&\& git commit -m "chore: establish hybrid architecture gitignore"
+git add .gitignore \\\\\\\&\\\\\\\& git commit -m "chore: establish hybrid architecture gitignore"
 
 # 4. Move Vault-destined files
 VAULT="/mnt/c/Vault/01-Projects/$(basename $(pwd))"
 mkdir -p "$VAULT/Decisions" "$VAULT/Notes"
-mv docs/personal-notes/\* "$VAULT/Notes/"
+mv docs/personal-notes/\\\\\\\* "$VAULT/Notes/"
 
 # 5. Commit remaining tracked files
-git add -A \&\& git commit -m "chore: migrate to hybrid architecture file placement"
+git add -A \\\\\\\&\\\\\\\& git commit -m "chore: migrate to hybrid architecture file placement"
 ```
 
 ### Phase 4 — Verify
 
 ```bash
 # Confirm no secrets in Repo
-git log --all --full-history -- "\*\*/\*.pem" "\*\*/\*.key" "\*\*/.env"
+git log --all --full-history -- "\\\\\\\*\\\\\\\*/\\\\\\\*.pem" "\\\\\\\*\\\\\\\*/\\\\\\\*.key" "\\\\\\\*\\\\\\\*/.env"
 
 # Confirm .gitignore working
 git status --short | grep -v "^?? "
@@ -300,15 +300,15 @@ Fresh machine setup order:
 wsl --install -d Ubuntu
 
 # 2. Clone dotfiles repo (establishes shell, git config, toolchain)
-git clone https://github.com/<you>/dotfiles \~/dotfiles
-cd \~/dotfiles \&\& ./install.sh
+git clone https://github.com/<you>/dotfiles \\\\\\\~/dotfiles
+cd \\\\\\\~/dotfiles \\\\\\\&\\\\\\\& ./install.sh
 
 # 3. Set up SSH keys (WSL-native)
 ssh-keygen -t ed25519 -C "$(hostname)-wsl-$(date +%Y)"
-cat \~/.ssh/id\_ed25519.pub  # Add to GitHub
+cat \\\\\\\~/.ssh/id\\\\\\\_ed25519.pub  # Add to GitHub
 
 # 4. Clone this repo
-git clone git@github.com:<org>/<repo>.git \~/projects/<repo>
+git clone git@github.com:<org>/<repo>.git \\\\\\\~/projects/<repo>
 
 # 5. Restore Vault (from backup or sync)
 # Mount from Windows: /mnt/c/Vault already accessible
@@ -339,7 +339,7 @@ git clone git@github.com:<org>/<repo>.git \~/projects/<repo>
 3. **Templates live in Repo; values live in WSL.** `.env.example` is committed; `.env` is not.
 4. **Vault drafts graduate to Repo; they don't duplicate.** Once a doc is in Repo, the Vault copy is archived or deleted.
 5. **WSL is ephemeral for artifacts.** Anything not in Repo or Vault can be regenerated. Build with that assumption.
-6. **No Windows-path strings in code.** Use `/mnt/c/...` in WSL scripts, never `C:\\...`.
+6. **No Windows-path strings in code.** Use `/mnt/c/...` in WSL scripts, never `C:\\\\\\\\...`.
 7. **Commit messages follow Conventional Commits.** `feat:`, `fix:`, `chore:`, `docs:`, `ci:`.
 8. **The matrix is a living document.** When a new file type appears, update `docs/file-placement-matrix.md` in the same PR.
 
