@@ -1,6 +1,6 @@
 # Hybrid Dev Environment — Architecture & Operations
 
-> **Layers:** Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository  
+> **Layers:** Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository
 > **Paradigm:** Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
 
 ---
@@ -20,7 +20,7 @@
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    WINDOWS HOST                         │
 │   GUI apps · Browser · VSCode UI · Docker Desktop       │
@@ -50,10 +50,11 @@
 ## Layer Responsibilities
 
 ### 🪟 Windows Host
+
 The substrate layer. Manages hardware, GUI, and heavy binary assets.
 
 | Owns | Never Owns |
-|------|-----------|
+| ------ | ----------- |
 | System fonts & display config | Source code |
 | Local backup archives (.tar.gz) | Secrets (plaintext) |
 | Browser profiles & GUI apps | Dev toolchains |
@@ -61,10 +62,11 @@ The substrate layer. Manages hardware, GUI, and heavy binary assets.
 | Video / audio / wallpaper media | Any file in .gitignore scope |
 
 ### 🐧 WSL2 (Ubuntu)
+
 The execution layer. All build, run, and test operations happen here.
 
 | Owns | Never Owns |
-|------|-----------|
+| ------ | ----------- |
 | All dev toolchains & runtimes | Windows system files |
 | SSH keys (~/.ssh/) | Vault-designated secrets |
 | Local .env files (gitignored) | Committed binary blobs |
@@ -83,10 +85,11 @@ The execution layer. All build, run, and test operations happen here.
 ```
 
 ### 🔐 Obsidian Vault
+
 The knowledge & secrets reference layer. Lives on Windows filesystem, accessible from both sides.
 
 | Owns | Never Owns |
-|------|-----------|
+| ------ | ----------- |
 | Personal & team notes (.md) | Executable code |
 | API token references (named, not raw) | Files that need Git version history |
 | Architecture diagrams (reference copies) | .env files |
@@ -94,10 +97,11 @@ The knowledge & secrets reference layer. Lives on Windows filesystem, accessible
 | Draft docs before they graduate to Repo | Secrets in plaintext (use a secrets manager) |
 
 ### 📦 Git Repository
+
 The collaboration and truth layer. If it needs to be shared or versioned, it lives here.
 
 | Owns | Never Owns |
-|------|-----------|
+| ------ | ----------- |
 | All source code | Real secrets or credentials |
 | Config templates (.env.example) | Compiled binaries or large artifacts |
 | Infrastructure-as-code (Terraform, Ansible, K8s) | Raw database files |
@@ -118,7 +122,7 @@ Before placing any file, ask:
 
 ### Placement Decision Tree
 
-```
+```text
 New file created
      │
      ├─ Contains credentials / tokens / keys?
@@ -142,7 +146,7 @@ New file created
 
 ## Vault Design
 
-```
+```text
 📁 Vault/
 ├── 00-Inbox/              # Unprocessed notes land here first
 ├── 01-Projects/           # One folder per active project
@@ -180,7 +184,7 @@ _Never paste raw values here. This file is NOT gitignored in Vault._
 
 Drafts begin in Vault and graduate to Repo when they're ready to be shared:
 
-```
+```text
 Vault/01-Projects/foo/Decisions/ADR-001-draft.md
         ↓  (reviewed, finalized)
 Repo/docs/decisions/ADR-001-use-postgres.md
@@ -318,7 +322,7 @@ git clone git@github.com:<org>/<repo>.git ~/projects/<repo>
 ## Security Model
 
 | Threat | Mitigation |
-|--------|-----------|
+| -------- | ----------- |
 | Secret committed to Repo | Pre-commit hook (detect-secrets / gitleaks) |
 | Secret in Vault plaintext | Vault notes contain names/references only; raw values in password manager |
 | WSL .env leaked via backup | Backup excludes WSL home; Windows backup excludes /mnt/c/… WSL paths |
@@ -343,7 +347,7 @@ git clone git@github.com:<org>/<repo>.git ~/projects/<repo>
 
 ## Quick Reference
 
-```
+```text
 LAYER      PRIMARY FOR                        NEVER CONTAINS
 ─────────  ─────────────────────────────────  ──────────────────────────
 Windows    GUI, media, system, Win backups    Source code, secrets

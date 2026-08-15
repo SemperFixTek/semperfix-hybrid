@@ -1,26 +1,41 @@
 # Hybrid Dev Environment — Architecture \& Operations
 
-> \\\\\\\*\\\\\\\*Layers:\\\\\\\*\\\\\\\* Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository  
+> \\\\\\\*\\\\\\\*Layers:\\\\\\\*\\\\\\\* Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository
 > \\\\\\\*\\\\\\\*Paradigm:\\\\\\\*\\\\\\\* Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
 
 \---
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Layer Responsibilities](#layer-responsibilities)
-3. [File Placement Philosophy](#file-placement-philosophy)
-4. [Vault Design](#vault-design)
-5. [Migration Workflow](#migration-workflow)
-6. [Environment Bootstrap](#environment-bootstrap)
-7. [Security Model](#security-model)
-8. [Conventions \& Rules](#conventions--rules)
+- [Hybrid Dev Environment — Architecture \& Operations](#hybrid-dev-environment--architecture--operations)
+  - [Table of Contents](#table-of-contents)
+  - [Architecture Overview](#architecture-overview)
+  - [Layer Responsibilities](#layer-responsibilities)
+    - [🪟 Windows Host](#-windows-host)
+    - [🐧 WSL2 (Ubuntu)](#-wsl2-ubuntu)
+    - [🔐 Obsidian Vault](#-obsidian-vault)
+    - [📦 Git Repository](#-git-repository)
+  - [File Placement Philosophy](#file-placement-philosophy)
+    - [The Three Questions](#the-three-questions)
+    - [Placement Decision Tree](#placement-decision-tree)
+  - [Vault Design](#vault-design)
+    - [Secrets Reference Pattern](#secrets-reference-pattern)
+    - [Vault–Repo Graduation Workflow](#vaultrepo-graduation-workflow)
+  - [Migration Workflow](#migration-workflow)
+    - [Phase 1 — Audit](#phase-1--audit)
+    - [Phase 2 — Classify](#phase-2--classify)
+    - [Phase 3 — Migrate](#phase-3--migrate)
+    - [Phase 4 — Verify](#phase-4--verify)
+  - [Environment Bootstrap](#environment-bootstrap)
+  - [Security Model](#security-model)
+  - [Conventions \& Rules](#conventions--rules)
+  - [Quick Reference](#quick-reference)
 
 \---
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    WINDOWS HOST                         │
 │   GUI apps · Browser · VSCode UI · Docker Desktop       │
@@ -122,7 +137,7 @@ Before placing any file, ask:
 
 ### Placement Decision Tree
 
-```
+```text
 New file created
      │
      ├─ Contains credentials / tokens / keys?
@@ -146,7 +161,7 @@ New file created
 
 ## Vault Design
 
-```
+```md
 📁 Vault/
 ├── 00-Inbox/              # Unprocessed notes land here first
 ├── 01-Projects/           # One folder per active project
@@ -163,6 +178,8 @@ New file created
 ├── 04-Archive/            # Completed projects, frozen
 ├── 09-Templates/          # Note templates (PARA, ADR, Runbook)
 └── 99-Meta/               # Vault config, plugin settings
+```python
+```md
 ```
 
 ### Secrets Reference Pattern
@@ -184,7 +201,7 @@ The Vault stores **named references**, not raw secrets:
 
 Drafts begin in Vault and graduate to Repo when they're ready to be shared:
 
-```
+```md
 Vault/01-Projects/foo/Decisions/ADR-001-draft.md
         ↓  (reviewed, finalized)
 Repo/docs/decisions/ADR-001-use-postgres.md
@@ -347,7 +364,7 @@ git clone git@github.com:<org>/<repo>.git \\\\\\\~/projects/<repo>
 
 ## Quick Reference
 
-```
+```md
 LAYER      PRIMARY FOR                        NEVER CONTAINS
 ─────────  ─────────────────────────────────  ──────────────────────────
 Windows    GUI, media, system, Win backups    Source code, secrets
@@ -359,4 +376,3 @@ Repo       Code, IaC, config templates       Real secrets, binaries, logs
 \---
 
 *Last updated: 2026-07-09 | Maintained in: `docs/ARCHITECTURE.md`*
-
