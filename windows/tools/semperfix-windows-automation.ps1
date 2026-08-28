@@ -6,7 +6,8 @@ Param(
 $configPath = "C:\SemperFix\semperfix-config.json"
 $config     = Get-Content $configPath -Raw | ConvertFrom-Json
 $apiKey     = $config.Syncthing.ApiKey
-#
+
+# Logging setup
 $LogPath = "C:\SemperFix\Logs\automation.log"
 if (!(Test-Path (Split-Path $LogPath))) {
     New-Item -ItemType Directory -Path (Split-Path $LogPath) -Force | Out-Null
@@ -20,13 +21,33 @@ function Write-Log {
 
 Write-Log "=== SemperFix Windows Automation Start ==="
 
-# --- Syncthing ping (no CSRF, no auth) ---
-$pingUrl = "http://localhost:8384/rest/system/ping"
+# --------------------------------------------------------------------
+# TRUST SYNCTHING'S SELF-SIGNED CERTIFICATE
+# --------------------------------------------------------------------
+add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
 
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+
+# --------------------------------------------------------------------
+# SYNCTHING PING (HTTPS + API KEY)
+# --------------------------------------------------------------------
+$pingUrl = "https://localhost:8384/rest/system/ping"
 $headers = @{ "X-API-Key" = $apiKey }
 
 try {
     Write-Log "Pinging Syncthing API at $pingUrl (TimeoutSec=$TimeoutSec)"
+
     $response = Invoke-WebRequest -Uri $pingUrl -Headers $headers -UseBasicParsing -TimeoutSec $TimeoutSec
 
     if ($response.Content -like '*"pong"*') {
@@ -39,8 +60,10 @@ catch {
     Write-Log "ERROR: Failed to reach Syncthing API: $($_.Exception.Message)"
 }
 
-# --- Placeholder: mesh / node / status calls that do NOT require CSRF ---
-# You can safely add more GET-only endpoints here later if needed.
+# --------------------------------------------------------------------
+# PLACEHOLDER: Mesh / Node / Status calls
+# --------------------------------------------------------------------
+# Add GET-only endpoints here later (they will inherit HTTPS + cert bypass)
 
 Write-Log "SemperFix Windows automation cycle complete."
 Write-Log "=== SemperFix Windows Automation End ==="
