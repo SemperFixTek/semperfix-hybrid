@@ -22,48 +22,48 @@ function Write-Log {
 Write-Log "=== SemperFix Windows Automation Start ==="
 
 # --------------------------------------------------------------------
-# TRUST SYNCTHING'S SELF-SIGNED CERTIFICATE
+# TRUST SYNCTHING'S SELF-SIGNED CERTIFICATE (PowerShell 7+ compatible)
 # --------------------------------------------------------------------
 add-type @"
-using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 
-public class TrustAllCertsPolicy : ICertificatePolicy {
-    public bool CheckValidationResult(
-        ServicePoint srvPoint, X509Certificate certificate,
-        WebRequest request, int certificateProblem) {
-        return true;
+public static class SyncthingCertBypass {
+    public static HttpClientHandler GetHandler() {
+        var handler = new HttpClientHandler();
+        handler.ServerCertificateCustomValidationCallback = 
+            (message, cert, chain, errors) => true;
+        return handler;
     }
 }
 "@
 
-[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+$handler = [SyncthingCertBypass]::GetHandler()
+$client  = New-Object System.Net.Http.HttpClient($handler)
 
 # --------------------------------------------------------------------
 # SYNCTHING PING (HTTPS + API KEY)
 # --------------------------------------------------------------------
-$pingUrl = "https://localhost:8384/rest/system/ping"
-$headers = @{ "X-API-Key" = $apiKey }
+$pingUrl = "https://127.0.0.1:8384/rest/system/ping"
 
 try {
     Write-Log "Pinging Syncthing API at $pingUrl (TimeoutSec=$TimeoutSec)"
 
-    $response = Invoke-WebRequest -Uri $pingUrl -Headers $headers -UseBasicParsing -TimeoutSec $TimeoutSec
+    $request = New-Object System.Net.Http.HttpRequestMessage "GET", $pingUrl
+    $request.Headers.Add("X-API-Key", $apiKey)
 
-    if ($response.Content -like '*"pong"*') {
+    $response = $client.SendAsync($request).Result
+    $content  = $response.Content.ReadAsStringAsync().Result
+
+    if ($content -like '*"pong"*') {
         Write-Log "Syncthing API reachable (pong received)."
     } else {
-        Write-Log "Syncthing API responded but content was unexpected: $($response.Content)"
+        Write-Log "Syncthing API responded but content was unexpected: $content"
     }
 }
 catch {
     Write-Log "ERROR: Failed to reach Syncthing API: $($_.Exception.Message)"
 }
-
-# --------------------------------------------------------------------
-# PLACEHOLDER: Mesh / Node / Status calls
-# --------------------------------------------------------------------
-# Add GET-only endpoints here later (they will inherit HTTPS + cert bypass)
 
 Write-Log "SemperFix Windows automation cycle complete."
 Write-Log "=== SemperFix Windows Automation End ==="
