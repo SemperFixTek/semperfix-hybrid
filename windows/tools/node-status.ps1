@@ -1,73 +1,64 @@
-param(
-    [string]$ConfigPath = "C:\SemperFix\Tools\semperfix-config.json"
-)
+# Phoenix Node Status — Updated to use global config loader
 
+# 1. Import global Phoenix configuration
+. "C:\SemperFix\tools\phoenix-config.ps1"
+
+# 2. Load config from global object
+$config = $Global:PhoenixConfig
+
+# 3. Prepare output object
 $result = [ordered]@{
-    NodeRole     = $null
     Timestamp    = (Get-Date).ToString("o")
     ApiHealthy   = $false
     DeviceCount  = 0
     FolderCount  = 0
     Errors       = @()
+    folders      = @()
 }
 
-# Load config
-try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $ApiKey  = $config.ApiKey
-    $BaseUrl = $config.BaseUrl
-    $result.NodeRole = $config.NodeRole
-}
-catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
+# 4. Validate config loaded
+if ($null -eq $config) {
+    $result.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
+    $result | ConvertTo-Json -Depth 6
+    exit
 }
 
-# Load API helper
-try {
-    . "C:\SemperFix\Tools\syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
-}
-catch {
-    $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
+# 5. Extract API URL and key
+$apiUrl = $config.ApiUrl
+$apiKey = $config.ApiKey
+
+if ([string]::IsNullOrWhiteSpace($apiUrl) -or
+    [string]::IsNullOrWhiteSpace($apiKey)) {
+
+    $result.Errors += "Invalid API configuration"
+    $result | ConvertTo-Json -Depth 6
+    exit
 }
 
-# Check system status
+# 6. Build Syncthing API headers
+$headers = @{
+    "X-API-Key" = $apiKey
+}
+
+# 7. Query Syncthing API — /rest/system/status
 try {
-    $system = Invoke-SyncthingApi -Path "/rest/system/status"
+    $sys = Invoke-RestMethod -Uri "$apiUrl/rest/system/status" -Headers $headers -Method Get
     $result.ApiHealthy = $true
+    $result.DeviceCount = $sys.numConnections
 }
 catch {
     $result.Errors += "System status API failed: $($_.Exception.Message)"
 }
 
-# Check device connections
+# 8. Query Syncthing API — /rest/system/config
 try {
-    $connections = Invoke-SyncthingApi -Path "/rest/system/connections"
-
-    if ($connections.connections -is [System.Collections.IDictionary]) {
-        $result.DeviceCount = $connections.connections.Count
-    }
+    $cfg = Invoke-RestMethod -Uri "$apiUrl/rest/system/config" -Headers $headers -Method Get
+    $result.FolderCount = $cfg.folders.Count
+    $result.folders     = $cfg.folders
 }
 catch {
-    $result.Errors += "Device connections API failed: $($_.Exception.Message)"
+    $result.Errors += "Folder status API failed: $($_.Exception.Message)"
 }
 
-# Check folder status (Golden Template–safe)
-try {
-    $folders = Invoke-SyncthingApi -Path "/rest/db/status"
-
-    if ($folders -is [System.Collections.IDictionary]) {
-        $result.FolderCount = $folders.Count
-    }
-}
-catch {
-    if ($_.Exception.Message -like "*404*") {
-        $result.FolderCount = 0
-    }
-    else {
-        $result.Errors += "Folder status API failed: $($_.Exception.Message)"
-    }
-}
-
+# 9. Output JSON
 $result | ConvertTo-Json -Depth 6

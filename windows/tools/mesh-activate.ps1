@@ -1,5 +1,5 @@
 param(
-    [string]$ConfigPath = "C:\SemperFix\Tools\semperfix-config.json"
+    [string]$ConfigPath = "C:\SemperFix\Tools\mesh-config.json"
 )
 
 & "C:\SemperFix\Tools\mesh-bootstrap.ps1" -ConfigPath $ConfigPath | Out-Null
