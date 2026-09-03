@@ -1,7 +1,7 @@
 # Phoenix Node Status — Updated to use global config loader
 
 # 1. Import global Phoenix configuration
-. "C:\SemperFix\tools\phoenix-config.ps1"
+. "/mnt/c/SemperFix/Tools/phoenix-config.ps1"
 
 # 2. Load config from global object
 $config = $Global:PhoenixConfig

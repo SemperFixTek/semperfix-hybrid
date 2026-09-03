@@ -1,5 +1,5 @@
 param(
-    [string]$ConfigPath = "C:\SemperFix\Tools\mesh-config.json"
+    [string]$ConfigPath = "/mnt/c/SemperFix/Tools/mesh-config.json"
 )
 
 $result = [ordered]@{
@@ -23,23 +23,26 @@ catch {
 
 # Load API helper
 try {
-    . "C:\SemperFix\Tools\syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
+    . "/mnt/c/SemperFix/Tools/syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
 }
 catch {
     $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
     return ($result | ConvertTo-Json -Depth 6)
 }
 
-# Device connections
+# Device connections (older Syncthing: /rest/system/connections)
 try {
     $connections = Invoke-SyncthingApi -Path "/rest/system/connections"
 
-    if ($connections.connections -is [System.Collections.IDictionary]) {
-        foreach ($pair in $connections.connections.GetEnumerator()) {
+    if ($connections.connections) {
+        foreach ($pair in $connections.connections.PSObject.Properties) {
+            $device = $pair.Value
             $result.Devices += [ordered]@{
-                DeviceID  = $pair.Key
-                Connected = $pair.Value.connected
-                Address   = $pair.Value.address
+                DeviceID  = $pair.Name
+                Connected = $device.connected
+                Address   = $device.address
+                ClientVer = $device.clientVersion
+                Type      = $device.type
             }
         }
     }
