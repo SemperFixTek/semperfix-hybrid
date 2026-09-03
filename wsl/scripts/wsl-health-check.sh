@@ -15,12 +15,16 @@ fi
 
 # --- Check Windows API Bridge ---
 # Use the JSON API endpoint instead of the HTML UI root
-API_RESPONSE=$(curl -s http://localhost:8384/rest/system/ping)
+WIN_HOST=$(ip route | awk '/default/ {print $3}')
+
+API_RESPONSE=$(curl -ks -H "X-API-Key: $SEMPERFIX_ST_APIKEY" https://$WIN_HOST:8384/rest/system/ping)
 
 if [[ "$API_RESPONSE" == *"pong"* ]]; then
     echo "Windows API: OK"
 else
     echo "Windows API: FAILED"
 fi
+
+
 
 echo "Health check complete."
