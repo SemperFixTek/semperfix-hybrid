@@ -1,12 +1,11 @@
 # Phoenix Mesh Status — Corrected for PSCustomObject enumeration
+# JSON‑pure, WSL‑safe, no dot‑sourcing
 
-# 1. Import global Phoenix configuration
-. "C:\SemperFix\Tools\mesh-config.json"
+param(
+    [string]$ConfigPath = "/mnt/c/SemperFix/Tools/mesh-config.json"
+)
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
-
-# 3. Prepare output object
+# 1. Prepare output object
 $mesh = [ordered]@{
     Timestamp    = (Get-Date).ToString("o")
     MeshHealthy  = $false
@@ -15,14 +14,17 @@ $mesh = [ordered]@{
     Errors       = @()
 }
 
-# 4. Validate config loaded
-if ($null -eq $config) {
-    $mesh.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
+# 2. Load config JSON properly (no dot‑sourcing)
+try {
+    $config = Get-Content $ConfigPath | ConvertFrom-Json
+}
+catch {
+    $mesh.Errors += "Config load failure: $($_.Exception.Message)"
     $mesh | ConvertTo-Json -Depth 6
     exit
 }
 
-# 5. Extract API URL and key
+# 3. Extract API URL and key
 $apiUrl = $config.ApiUrl
 $apiKey = $config.ApiKey
 
@@ -34,12 +36,12 @@ if ([string]::IsNullOrWhiteSpace($apiUrl) -or
     exit
 }
 
-# 6. Build Syncthing API headers
+# 4. Build Syncthing API headers
 $headers = @{
     "X-API-Key" = $apiKey
 }
 
-# 7. Query Syncthing API — /rest/system/connections
+# 5. Query Syncthing API — /rest/system/connections
 try {
     $connections = Invoke-RestMethod -Uri "$apiUrl/rest/system/connections" -Headers $headers -Method Get
 
@@ -64,5 +66,5 @@ catch {
     $mesh.Errors += "Mesh status API failed: $($_.Exception.Message)"
 }
 
-# 8. Output JSON
+# 6. Output JSON
 $mesh | ConvertTo-Json -Depth 6
