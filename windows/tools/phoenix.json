@@ -1,0 +1,32 @@
+{
+    "NodeRole": "MASTERZERO",
+    "ClusterName": "SemperFix-Hybrid",
+    "MasterNode": "MASTERZERO",
+    "Nodes": [
+        {
+            "Name": "MASTERZERO",
+            "ApiUrl": "http://127.0.0.1:8384",
+            "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+            "MeshEndpoint": "quic://10.10.10.1:22000"
+        },
+        {
+            "Name": "SECONDARY",
+            "ApiUrl": "http://MASTERZERO:8384",
+            "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+            "MeshEndpoint": "quic://10.10.10.2:22000"
+        }
+    ],
+    "Failover": {
+        "Enabled": true,
+        "PromoteOnMasterFailure": true,
+        "DemoteOnMasterRecovery": true,
+        "MinimumOutageSeconds": 30,
+        "SplitBrainProtection": true,
+        "HeartbeatIntervalSeconds": 10
+    },
+    "Phoenix": {
+        "Version": "1.0.0",
+        "LastUpdate": "2026-09-05T15:01:00-07:00",
+        "Lineage": "MASTERZERO"
+    }
+}
