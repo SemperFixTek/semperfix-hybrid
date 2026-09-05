@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Author>SemperFix Phoenix</Author>
+    <Description>Monitors node health and triggers Phoenix recovery if needed.</Description>
+    <URI>\Phoenix Watchdog</URI>
+  </RegistrationInfo>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT4M</ExecutionTimeLimit>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+  </Settings>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+      <Repetition>
+        <Interval>PT5M</Interval>
+      </Repetition>
+    </TimeTrigger>
+  </Triggers>
+  <Actions Context="Author">
+    <Exec>
+      <Command>pwsh.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\SemperFix\Git\repos\semperfix-hybrid\windows\tools\phoenix-watchdog.ps1"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
