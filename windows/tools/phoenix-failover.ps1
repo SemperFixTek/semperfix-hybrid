@@ -1,64 +1,86 @@
-# Phoenix Failover — Updated to use global config loader
+<#
+    Phoenix Failover (Syncthing Transport)
+    SemperFix Logging Format
+    --------------------------------------
+    SECONDARY becomes ACTIVE using Syncthing-synced local folders.
+#>
 
-# 1. Import global Phoenix configuration
-. "C:\SemperFix\tools\phoenix-config.ps1"
+# --- CONFIG ---
+$LogPath     = "C:\SemperFix\Logs\phoenix-failover.log"
+$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$MasterZeroPath = "C:\SemperFix\MasterZero"
+$ConfigBackupPath = "C:\SemperFix\ConfigBackup"
+$AssetsPath = "C:\SemperFix\Assets"
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
+# --- LOGGING ---
+function Write-SFXLog {
+    param([string]$Level, [string]$Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
+    Write-Host $line
+    Add-Content -Path $LogPath -Value $line
+}
 
-# 3. Prepare output object
-$result = [ordered]@{
+Write-SFXLog "INFO" "Phoenix failover starting (Syncthing transport, SMB-free)."
+
+# --- VERIFY SYNCTHING FOLDERS ---
+foreach ($folder in @($MasterZeroPath, $ConfigBackupPath, $AssetsPath)) {
+    if (-not (Test-Path $folder)) {
+        Write-SFXLog "ERROR" "Required Syncthing folder missing: $folder"
+        exit 1
+    }
+    Write-SFXLog "INFO" "Verified Syncthing folder: $folder"
+}
+
+# --- VERIFY PHOENIX STATUS FILE ---
+if (-not (Test-Path $StatusPath)) {
+    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot failover."
+    exit 1
+}
+
+Write-SFXLog "INFO" "Phoenix status file found at '$StatusPath'. Parsing..."
+
+try {
+    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
+    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
+}
+catch {
+    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
+    exit 1
+}
+
+# --- VALIDATE STATUS CONTENT ---
+if ($statusJson.Status -ne "DEGRADED" -and $statusJson.Status -ne "FAILOVER_ALLOWED") {
+    Write-SFXLog "WARN" "Phoenix status does not explicitly allow failover. Proceeding with caution."
+} else {
+    Write-SFXLog "INFO" "Phoenix status indicates failover is allowed."
+}
+
+# --- PROMOTE SECONDARY ---
+Write-SFXLog "INFO" "Promoting SECONDARY to ACTIVE Phoenix node."
+
+# Example: start Phoenix service (replace with your actual service name)
+try {
+    Start-Service -Name "PhoenixService"
+    Write-SFXLog "INFO" "Phoenix service started on SECONDARY."
+}
+catch {
+    Write-SFXLog "ERROR" "Failed to start Phoenix service: $($_.Exception.Message)"
+    exit 1
+}
+
+# --- UPDATE STATUS JSON LOCALLY ---
+$failoverRecord = @{
+    Role          = "SECONDARY-ACTIVE"
+    PreviousRole  = "SECONDARY-PASSIVE"
+    FailoverSource = "MASTERZERO"
     Timestamp     = (Get-Date).ToString("o")
-    NodeRole      = $null
-    ProposedRole  = $null
-    Action        = "Unknown NodeRole"
-    FailoverReady = $false
-    Errors        = @()
 }
 
-# 4. Validate config loaded
-if ($null -eq $config) {
-    $result.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
-    $result | ConvertTo-Json -Depth 6
-    exit
-}
+$failoverRecord | ConvertTo-Json -Depth 5 | Set-Content -Path $StatusPath
 
-# 5. Extract NodeRole
-$nodeRole = $config.NodeRole
+Write-SFXLog "INFO" "Phoenix status updated for SECONDARY-ACTIVE."
 
-if ([string]::IsNullOrWhiteSpace($nodeRole)) {
-    $result.Errors += "Unknown NodeRole: $nodeRole"
-    $result | ConvertTo-Json -Depth 6
-    exit
-}
-
-$result.NodeRole = $nodeRole
-
-# 6. Failover logic (unchanged — only config loading updated)
-switch ($nodeRole) {
-
-    "MASTERZERO" {
-        $result.ProposedRole = "MASTERZERO"
-        $result.Action       = "No failover — primary node"
-        $result.FailoverReady = $true
-    }
-
-    "SECONDARY" {
-        $result.ProposedRole = "MASTERZERO"
-        $result.Action       = "Promote SECONDARY → MASTERZERO (DryRun)"
-        $result.FailoverReady = $true
-    }
-
-    "OFFSITE" {
-        $result.ProposedRole = "SECONDARY"
-        $result.Action       = "OFFSITE continuity only (DryRun)"
-        $result.FailoverReady = $true
-    }
-
-    default {
-        $result.Errors += "Unknown NodeRole: $nodeRole"
-    }
-}
-
-# 7. Output JSON
-$result | ConvertTo-Json -Depth 6
+# --- COMPLETE ---
+Write-SFXLog "INFO" "Phoenix failover completed successfully using Syncthing transport."
+exit 0
