@@ -1,39 +1,58 @@
-# Phoenix Escalation — Updated to use global config loader
-
-# 1. Import global Phoenix configuration
-. "C:\SemperFix\tools\phoenix-config.ps1"
+<#
+    Phoenix Escalate (Syncthing Transport)
+    SemperFix Logging Format
+#>
 
 param(
-    [string]$Reason,
-    [string]$Stage
+    [string]$Reason = "Unknown"
 )
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
+# --- CONFIG ---
+$LogPath     = "C:\SemperFix\Logs\phoenix-escalate.log"
+$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
 
-# 3. Prepare escalation event object (renamed from 'event')
-$escalation = [ordered]@{
-    Timestamp  = (Get-Date).ToString("o")
-    NodeRole   = $null
-    Stage      = $Stage
-    Reason     = $Reason
-    Errors     = @()
+# --- LOGGING ---
+function Write-SFXLog {
+    param([string]$Level, [string]$Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
+    Write-Host $line
+    Add-Content -Path $LogPath -Value $line
 }
 
-# 4. Validate config loaded
-if ($null -eq $config) {
-    $escalation.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
-}
-else {
-    $escalation.NodeRole = $config.NodeRole
-}
+Write-SFXLog "INFO" "Phoenix escalation starting (Syncthing transport)."
+Write-SFXLog "INFO" "Reason: $Reason"
 
-# 5. Write escalation event to log
-$logDir = "C:\SemperFix\phoenix\logs"
-$logFile = Join-Path $logDir "escalate.log"
-
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+# --- VERIFY STATUS FILE ---
+if (-not (Test-Path $StatusPath)) {
+    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot escalate."
+    exit 1
 }
 
-$escalation | ConvertTo-Json -Depth 6 | Add-Content -Path $logFile
+Write-SFXLog "INFO" "Phoenix status file found. Parsing..."
+
+try {
+    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
+    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
+}
+catch {
+    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
+    exit 1
+}
+
+# --- ESCALATION ACTION ---
+Write-SFXLog "WARN" "Escalation triggered. Marking Phoenix status as DEGRADED."
+
+$escalateRecord = @{
+    Role           = $statusJson.Role
+    Status         = "DEGRADED"
+    EscalationReason = $Reason
+    Timestamp      = (Get-Date).ToString("o")
+    Message        = "Phoenix escalation executed."
+}
+
+$escalateRecord | ConvertTo-Json -Depth 6 | Set-Content -Path $StatusPath
+
+Write-SFXLog "INFO" "Phoenix status updated to DEGRADED."
+Write-SFXLog "INFO" "Phoenix escalation completed."
+exit 0

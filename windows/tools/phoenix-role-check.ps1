@@ -1,45 +1,42 @@
-# Phoenix Role Check — Updated to use global config loader
+<#
+    Phoenix Role Check (Syncthing Transport)
+    SemperFix Logging Format
+#>
 
-# 1. Import global Phoenix configuration
-. "C:\SemperFix\tools\phoenix-config.ps1"
+# --- CONFIG ---
+$LogPath     = "C:\SemperFix\Logs\phoenix-role-check.log"
+$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
-
-# 3. Prepare output object
-$result = [ordered]@{
-    NodeRole  = $null
-    Timestamp = (Get-Date).ToString("o")
-    Valid     = $false
-    Errors    = @()
+# --- LOGGING ---
+function Write-SFXLog {
+    param([string]$Level, [string]$Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
+    Write-Host $line
+    Add-Content -Path $LogPath -Value $line
 }
 
-# 4. Validate config loaded
-if ($null -eq $config) {
-    $result.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
-    $result | ConvertTo-Json -Depth 6
-    exit
+Write-SFXLog "INFO" "Phoenix role-check starting (Syncthing transport)."
+
+# --- VERIFY STATUS FILE ---
+if (-not (Test-Path $StatusPath)) {
+    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot determine role."
+    exit 1
 }
 
-# 5. Extract NodeRole
-$nodeRole = $config.NodeRole
+Write-SFXLog "INFO" "Phoenix status file found. Parsing..."
 
-if ([string]::IsNullOrWhiteSpace($nodeRole)) {
-    $result.Errors += "Unknown NodeRole: $nodeRole"
-    $result | ConvertTo-Json -Depth 6
-    exit
+try {
+    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
+    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
+}
+catch {
+    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
+    exit 1
 }
 
-# 6. Validate NodeRole
-$validRoles = @("MASTERZERO", "SECONDARY", "OFFSITE")
+# --- OUTPUT ROLE ---
+Write-SFXLog "INFO" ("Current Phoenix Role: {0}" -f $statusJson.Role)
 
-if ($validRoles -contains $nodeRole) {
-    $result.NodeRole = $nodeRole
-    $result.Valid    = $true
-}
-else {
-    $result.Errors += "Unknown NodeRole: $nodeRole"
-}
-
-# 7. Output JSON
-$result | ConvertTo-Json -Depth 6
+$statusJson.Role
+exit 0
