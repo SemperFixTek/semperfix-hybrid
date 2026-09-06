@@ -24,9 +24,35 @@
         "SplitBrainProtection": true,
         "HeartbeatIntervalSeconds": 10
     },
+    
+    "Watchdog": {
+        "RequiredPaths": {
+            "SemperFixRoot": "C:\\SemperFix",
+            "Tools": "C:\\SemperFix\\Tools",
+            "ConfigBackup": "C:\\SemperFix\\ConfigBackup",
+            "MasterZero": "C:\\SemperFix\\MasterZero",
+            "Assets": "C:\\SemperFix\\Assets"
+        },
+        "RequiredFiles": [
+            "C:\\SemperFix\\Tools\\semperfix-config.json",
+            "C:\\SemperFix\\ConfigBackup\\phoenix-status.json"
+        ],
+        "RequiredModules": [
+            "phoenix-supervisor.ps1",
+            "phoenix-syncthing-health.ps1",
+            "phoenix-status-write.ps1",
+            "phoenix-status-validate.ps1"
+        ],
+        "RequiredFolders": [
+            "C:\\SemperFix\\MasterZero",
+            "C:\\SemperFix\\ConfigBackup",
+            "C:\\SemperFix\\Assets"
+        ]   
+    },
     "Phoenix": {
-        "Version": "1.0.0",
-        "LastUpdate": "2026-09-05T15:01:00-07:00",
+        "Version": "1.1.0",
+        "LastUpdate": "2026-09-06T13:01:00-07:00",
         "Lineage": "MASTERZERO"
     }
+
 }

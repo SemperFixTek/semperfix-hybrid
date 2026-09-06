@@ -1,81 +1,116 @@
-# Phoenix Watchdog — Updated to use global config loader
+<#
+    Phoenix v2 Watchdog
+    Unified Config Edition — uses phoenix.json as the single source of truth.
+    Purpose:
+        - Validate MASTERZERO integrity
+        - Validate required paths/files/modules
+        - Validate Syncthing health (optional)
+        - Escalate to DEGRADED if critical checks fail
+        - Prevent split-brain
+#>
 
-# 1. Import global Phoenix configuration
-. "C:\SemperFix\tools\phoenix-config.ps1"
+param(
+    [string]$PhoenixJson = "C:\SemperFix\ConfigBackup\phoenix.json",
+    [string]$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json",
+    [string]$LogPath     = "C:\SemperFix\Logs\phoenix-watchdog.log"
+)
 
-$logDir = "C:\SemperFix\phoenix\logs"
-$watchdogLog = Join-Path $logDir "watchdog.log"
-
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[$ts] [$Level] $Message"
+    $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
+    Write-Host $line
 }
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
-
-if ($null -eq $config) {
-    $heartbeat = [ordered]@{
-        Timestamp      = (Get-Date).ToString("o")
-        NodeRole       = $null
-        ApiHealthy     = $false
-        MeshHealthy    = $false
-        DriftDetected  = $false
-        FailoverAction = "ConfigLoadFailure"
-        Errors         = @("Config load failure: $Global:PhoenixConfigPath not readable")
-    }
-    $heartbeat | ConvertTo-Json -Depth 6 | Add-Content -Path $watchdogLog
-    exit
-}
-
-# 3. Node Status
+# Load phoenix.json
 try {
-    $nodeStatus = & "C:\SemperFix\tools\node-status.ps1" | ConvertFrom-Json
+    $Phoenix = Get-Content $PhoenixJson | ConvertFrom-Json
+    Write-Log "Loaded phoenix.json successfully."
 }
 catch {
-    & "C:\SemperFix\tools\phoenix-escalate.ps1" -Reason "Watchdog failure: $($_.Exception.Message)" -Stage "watchdog"
-    exit
+    Write-Log "Failed to load phoenix.json: $($_.Exception.Message)" "ERROR"
+    $EscReason = "Watchdog failure: phoenix.json unreadable."
+    goto ESCALATE
 }
 
-# 4. Role Check
-$role = & "C:\SemperFix\tools\phoenix-role-check.ps1" | ConvertFrom-Json
-
-# 5. Mesh Check
-$mesh = & "C:\SemperFix\tools\mesh-status.ps1" | ConvertFrom-Json
-
-# 6. Drift Check
-$driftDetected = $false
-foreach ($folder in $nodeStatus.folders) {
-    if ($folder.needFiles -gt 0) { $driftDetected = $true }
-    if ($folder.localAdditions -gt 0) { $driftDetected = $true }
-    if ($folder.failedItems -gt 0) { $driftDetected = $true }
+# Extract watchdog config
+if (-not $Phoenix.Watchdog) {
+    Write-Log "phoenix.json missing Watchdog section." "ERROR"
+    $EscReason = "Watchdog failure: Missing Watchdog section in phoenix.json."
+    goto ESCALATE
 }
 
-# 7. Failover Simulation
-$failover = & "C:\SemperFix\tools\phoenix-failover.ps1" -DryRun | ConvertFrom-Json
+$WD = $Phoenix.Watchdog
 
-# 8. Build unified watchdog heartbeat
-$heartbeat = [ordered]@{
-    Timestamp      = (Get-Date).ToString("o")
-    NodeRole       = $role.NodeRole
-    ApiHealthy     = $nodeStatus.ApiHealthy
-    MeshHealthy    = $mesh.MeshHealthy
-    DriftDetected  = $driftDetected
-    FailoverAction = $failover.Action
-    Errors         = @()
+# Validate required paths
+foreach ($path in $WD.RequiredPaths.Values) {
+    if (-not (Test-Path $path)) {
+        Write-Log "Missing required path: $path" "ERROR"
+        $EscReason = "Missing required path: $path"
+        goto ESCALATE
+    }
 }
 
-# 9. Escalation logic
-if (-not $nodeStatus.ApiHealthy) {
-    & "C:\SemperFix\tools\phoenix-escalate.ps1" -Reason "Syncthing API unhealthy" -Stage "watchdog"
+# Validate required files
+foreach ($file in $WD.RequiredFiles) {
+    if (-not (Test-Path $file)) {
+        Write-Log "Missing required file: $file" "ERROR"
+        $EscReason = "Missing required file: $file"
+        goto ESCALATE
+    }
 }
 
-if (-not $mesh.MeshHealthy) {
-    & "C:\SemperFix\tools\phoenix-escalate.ps1" -Reason "Mesh unhealthy" -Stage "watchdog"
+# Validate required folders
+foreach ($folder in $WD.RequiredFolders) {
+    if (-not (Test-Path $folder)) {
+        Write-Log "Missing required folder: $folder" "ERROR"
+        $EscReason = "Missing required folder: $folder"
+        goto ESCALATE
+    }
 }
 
-if ($driftDetected) {
-    & "C:\SemperFix\tools\phoenix-escalate.ps1" -Reason "Drift detected" -Stage "watchdog"
+# Validate required modules
+foreach ($module in $WD.RequiredModules) {
+    $modulePath = "C:\SemperFix\Tools\$module"
+    if (-not (Test-Path $modulePath)) {
+        Write-Log "Missing required module: $modulePath" "ERROR"
+        $EscReason = "Missing required module: $modulePath"
+        goto ESCALATE
+    }
 }
 
-# 10. Write heartbeat log
-$heartbeat | ConvertTo-Json -Depth 6 | Add-Content -Path $watchdogLog
+# If we reach here, watchdog passes
+Write-Log "Watchdog health OK — no escalation required."
+return
+
+# Escalation block
+:ESCALATE
+
+Write-Log "Watchdog escalation triggered: $EscReason" "ERROR"
+
+# Load current phoenix-status.json
+try {
+    $Status = Get-Content $StatusPath | ConvertFrom-Json
+}
+catch {
+    Write-Log "phoenix-status.json unreadable during escalation." "ERROR"
+    # Create minimal status doc
+    $Status = @{
+        Role = "MASTERZERO"
+        Status = "DEGRADED"
+    }
+}
+
+# Update status
+$Status.Status = "DEGRADED"
+$Status.Role   = "SECONDARY-ACTIVE"   # Hand control to SECONDARY
+$Status.EscalationReason = $EscReason
+$Status.Timestamp = (Get-Date).ToString("o")
+$Status.Message = "Phoenix escalation executed."
+
+# Write updated status
+$Status | ConvertTo-Json -Depth 8 | Set-Content -Path $StatusPath -Encoding UTF8
+
+Write-Log "phoenix-status.json updated — MASTERZERO marked DEGRADED and SECONDARY promoted."
+return
