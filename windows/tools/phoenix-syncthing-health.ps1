@@ -7,8 +7,9 @@
 
 # --- CONFIG ---
 $LogPath = "C:\SemperFix\Logs\syncthing-health.log"
-$ApiKey  = (Get-Content "C:\SemperFix\ConfigBackup\syncthing-apikey.txt")
-$ApiUrl  = "http://127.0.0.1:8384"
+$Config = Get-Content "C:\SemperFix\Tools\semperfix-config.json" | ConvertFrom-Json
+$ApiKey = $Config.ApiKey
+$ApiUrl  = "http://MASTERZERO:8384"
 
 # --- LOGGING ---
 function Write-SFXLog {
@@ -33,9 +34,9 @@ catch {
 
 # --- FOLDER STATUS ---
 try {
-    $folderStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=MasterZero" -Headers @{ "X-API-Key" = $ApiKey }
-    $configStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=ConfigBackup" -Headers @{ "X-API-Key" = $ApiKey }
-    $assetsStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=Assets" -Headers @{ "X-API-Key" = $ApiKey }
+    $folderStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=masterzero" -Headers @{ "X-API-Key" = $ApiKey }
+    $configStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=config-backup" -Headers @{ "X-API-Key" = $ApiKey }
+    $assetsStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=assets" -Headers @{ "X-API-Key" = $ApiKey }
 
     Write-SFXLog "INFO" "Syncthing folder statuses retrieved."
 }

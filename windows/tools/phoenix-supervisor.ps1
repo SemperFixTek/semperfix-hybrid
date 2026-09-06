@@ -3,6 +3,8 @@
     Supervises Phoenix state using Syncthing and phoenix-status.json v2.
 #>
 
+# Phoenix Supervisor (Syncthing Edition)
+
 param(
     [int]$IntervalSeconds = 30,
     [string]$StatusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json",
@@ -19,6 +21,9 @@ function Write-Log {
     $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
     Write-Host $line
 }
+
+# Load Syncthing health module (correct API key source)
+. "C:\SemperFix\tools\phoenix-syncthing-health.ps1"
 
 function Acquire-Lock {
     param([string]$Path)

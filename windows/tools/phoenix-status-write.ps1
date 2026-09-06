@@ -1,6 +1,6 @@
 <#
     phoenix-status-write.ps1
-    Writes phoenix-status.json v2 in a consistent format.
+    Writes phoenix-status.json v2 using the authoritative API key source.
 #>
 
 param(
@@ -16,6 +16,10 @@ param(
     [hashtable]$Actions
 )
 
+# Load API key from SemperFix config (authoritative)
+$Config = Get-Content "C:\SemperFix\Tools\semperfix-config.json" | ConvertFrom-Json
+$ApiKey = $Config.ApiKey
+
 $now = Get-Date
 
 $doc = @{
@@ -28,11 +32,11 @@ $doc = @{
     }
 
     Cluster = @{
-        MasterNode   = $MasterNode
+        MasterNode    = $MasterNode
         SecondaryNode = $SecondaryNode
-        Lineage      = $Lineage
-        LastFailover = $null
-        LastRecovery = $null
+        Lineage       = $Lineage
+        LastFailover  = $null
+        LastRecovery  = $null
     }
 
     Syncthing = $SyncthingHealth
@@ -42,9 +46,10 @@ $doc = @{
     Actions = $Actions
 
     Meta = @{
-        Version     = "2.0"
-        GeneratedBy = "phoenix-status-write"
-        Timestamp   = $now.ToString("o")
+        Version       = "2.0"
+        GeneratedBy   = "phoenix-status-write"
+        ApiKeySource  = "semperfix-config.json"
+        Timestamp     = $now.ToString("o")
     }
 }
 
