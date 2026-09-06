@@ -1,0 +1,185 @@
+{
+  "NodeRole": "MASTERZERO",
+  "ClusterName": "SemperFix-Hybrid",
+  "MasterNode": "MASTERZERO",
+  "Nodes": [
+    {
+      "Name": "MASTERZERO",
+      "ApiUrl": "http://127.0.0.1:8384",
+      "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+      "MeshEndpoint": "quic://10.10.10.1:22000"
+    },
+    {
+      "Name": "SECONDARY",
+      "ApiUrl": "http://MASTERZERO:8384",
+      "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+      "MeshEndpoint": "quic://10.10.10.2:22000"
+    }
+  ],
+  "Failover": {
+    "Enabled": true,
+    "PromoteOnMasterFailure": true,
+    "DemoteOnMasterRecovery": true,
+    "MinimumOutageSeconds": 30,
+    "SplitBrainProtection": true,
+    "HeartbeatIntervalSeconds": 10
+  },
+  "Watchdog": {
+    "RequiredPaths": {
+      "SemperFixRoot": "C:\\SemperFix",
+      "Tools": "C:\\SemperFix\\Tools",
+      "ConfigBackup": "C:\\SemperFix\\ConfigBackup",
+      "MasterZero": "C:\\SemperFix\\MasterZero",
+      "Assets": "C:\\SemperFix\\Assets"
+    },
+    "RequiredFiles": [
+      "C:\\SemperFix\\Tools\\semperfix-config.json",
+      "C:\\SemperFix\\ConfigBackup\\phoenix.json"
+    ],
+    "RequiredModules": [
+      "phoenix-supervisor.ps1",
+      "phoenix-syncthing-health.ps1",
+      "phoenix-status-write.ps1",
+      "phoenix-status-validate.ps1"
+    ],
+    "RequiredFolders": [
+      "C:\\SemperFix\\MasterZero",
+      "C:\\SemperFix\\ConfigBackup",
+      "C:\\SemperFix\\Assets"
+    ]
+  },
+  "Phoenix": {
+    "Version": "1.1.0",
+    "LastUpdate": "2026-09-06T16:21:03.6496164-07:00",
+    "Lineage": "MASTERZERO"
+  },
+  "Status": {
+    "Role": "MASTERZERO-ACTIVE",
+    "State": "HEALTHY",
+    "EscalationReason": null,
+    "Timestamp": "2026-09-06T14:45:00-07:00",
+    "Message": "Initial Phoenix unified status."
+  },
+  "Syncthing": {
+    "Healthy": true,
+    "Status": {
+      "alloc": 5903392,
+      "connectionServiceStatus": {
+        "dynamic+https://relays.syncthing.net/endpoint": {
+          "error": null,
+          "lanAddresses": [
+            "relay://192.3.21.3:22067/?id=ZEGFMVF-LRLIXNS-NH5ADVB-W4HQFGC-SFITJNX-JJBZTSM-QKHUOOB-T2VP3AP"
+          ],
+          "wanAddresses": [
+            "relay://192.3.21.3:22067/?id=ZEGFMVF-LRLIXNS-NH5ADVB-W4HQFGC-SFITJNX-JJBZTSM-QKHUOOB-T2VP3AP"
+          ]
+        },
+        "quic://0.0.0.0:22000": {
+          "error": null,
+          "lanAddresses": [
+            "quic://0.0.0.0:22000",
+            "quic://10.10.10.1:22000",
+            "quic://[fd00:2e67:bea9:89d:ca8a:d70d:c920:2ff8]:22000",
+            "quic://[fd00:2e67:bea9:89d:b038:a6b7:4c75:6fa9]:22000",
+            "quic://[fd00:2e67:bea9:89d:d5e2:7a26:8c43:608d]:22000",
+            "quic://192.168.1.241:22000",
+            "quic://172.23.208.1:22000"
+          ],
+          "wanAddresses": [
+            "quic://0.0.0.0:22000",
+            "quic://104.32.6.155:22000"
+          ]
+        },
+        "tcp://0.0.0.0:22000": {
+          "error": null,
+          "lanAddresses": [
+            "tcp://0.0.0.0:22000",
+            "tcp://10.10.10.1:22000",
+            "tcp://[fd00:2e67:bea9:89d:ca8a:d70d:c920:2ff8]:22000",
+            "tcp://[fd00:2e67:bea9:89d:b038:a6b7:4c75:6fa9]:22000",
+            "tcp://[fd00:2e67:bea9:89d:d5e2:7a26:8c43:608d]:22000",
+            "tcp://192.168.1.241:22000",
+            "tcp://172.23.208.1:22000"
+          ],
+          "wanAddresses": [
+            "tcp://0.0.0.0:0",
+            "tcp://0.0.0.0:22000"
+          ]
+        }
+      },
+      "cpuPercent": 0,
+      "discoveryEnabled": true,
+      "discoveryErrors": {},
+      "discoveryMethods": 5,
+      "discoveryStatus": {
+        "IPv4 local": {
+          "error": null
+        },
+        "IPv6 local": {
+          "error": null
+        },
+        "global@https://discovery-announce-v4.syncthing.net/v2/": {
+          "error": null
+        },
+        "global@https://discovery-announce-v6.syncthing.net/v2/": {
+          "error": null
+        },
+        "global@https://discovery-lookup.syncthing.net/v2/": {
+          "error": null
+        }
+      },
+      "goroutines": 146,
+      "guiAddressOverridden": false,
+      "guiAddressUsed": "[::]:8384",
+      "lastDialStatus": {
+        "tcp://10.10.10.2:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://192.168.1.246:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://[2603:8001:a600:f719:f818:89d1:3e87:dd8c]:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://[fd00:2e67:bea9:89d:8dbf:303b:32f6:38cd]:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://[fd00:2e67:bea9:89d:d2a9:786e:1641:948d]:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://[fd00:2e67:bea9:89d:f818:89d1:3e87:dd8c]:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        },
+        "tcp://[fe80::d71f:156a:fe07:8fbf%25EXT-sfx]:22000": {
+          "when": "2026-09-06T23:20:13Z",
+          "error": null
+        }
+      },
+      "myID": "Y32SMTE-3B5OVU3-AF2DWD7-IHKUQGV-I32GV5Q-4UVC5NZ-FJ4FAEB-73IZKQT",
+      "pathSeparator": "\\",
+      "startTime": "2026-09-06T16:20:04-07:00",
+      "sys": 18041080,
+      "tilde": "C:\\WINDOWS\\system32\\config\\systemprofile",
+      "uptime": 59,
+      "urVersionMax": 3
+    },
+    "Reason": "OK"
+  },
+  "Health": {
+    "DiskOK": true,
+    "PathsOK": true,
+    "FilesOK": true,
+    "ModulesOK": true,
+    "FoldersOK": true
+  },
+  "Actions": {
+    "LastAction": "Initialization",
+    "History": []
+  }
+}

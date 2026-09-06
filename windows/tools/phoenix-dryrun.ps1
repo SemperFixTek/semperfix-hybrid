@@ -1,55 +1,31 @@
 <#
-    Phoenix Dry-Run (Syncthing Transport)
-    SemperFix Logging Format
+    phoenix-dryrun.ps1 (Unified Config Edition)
+    Simulates MASTERZERO failure → SECONDARY promotion → MASTERZERO recovery.
 #>
 
-# --- CONFIG ---
-$LogPath     = "C:\SemperFix\Logs\phoenix-dryrun.log"
-$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-$MasterZeroPath = "C:\SemperFix\MasterZero"
-$ConfigBackupPath = "C:\SemperFix\ConfigBackup"
-$AssetsPath = "C:\SemperFix\Assets"
+param(
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
+)
 
-# --- LOGGING ---
-function Write-SFXLog {
-    param([string]$Level, [string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
-    Write-Host $line
-    Add-Content -Path $LogPath -Value $line
-}
+Write-Host "Phoenix v2 Dry-Run Starting..."
 
-Write-SFXLog "INFO" "Phoenix dry-run starting (Syncthing transport)."
+# 1. MASTERZERO failure
+Write-Host "Simulating MASTERZERO failure..."
+powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Dry-run simulated failure"
 
-# --- VERIFY SYNCTHING FOLDERS ---
-foreach ($folder in @($MasterZeroPath, $ConfigBackupPath, $AssetsPath)) {
-    if (-not (Test-Path $folder)) {
-        Write-SFXLog "ERROR" "Missing Syncthing folder: $folder"
-        exit 1
-    }
-    Write-SFXLog "INFO" "Verified Syncthing folder: $folder"
-}
+Start-Sleep -Seconds 2
 
-# --- VERIFY STATUS FILE ---
-if (-not (Test-Path $StatusPath)) {
-    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Dry-run FAILED."
-    exit 1
-}
+# 2. SECONDARY promotion
+Write-Host "Simulating SECONDARY promotion..."
+powershell -File "C:\SemperFix\Tools\phoenix-promote.ps1"
 
-Write-SFXLog "INFO" "Phoenix status file found. Parsing..."
+Start-Sleep -Seconds 2
 
-try {
-    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
-    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
-}
-catch {
-    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
-    exit 1
-}
+# 3. MASTERZERO recovery
+Write-Host "Simulating MASTERZERO recovery..."
+powershell -File "C:\SemperFix\Tools\phoenix-recover.ps1"
 
-# --- DRY-RUN SUMMARY ---
-Write-SFXLog "INFO" ("Phoenix Role: {0}" -f $statusJson.Role)
-Write-SFXLog "INFO" ("Last Updated: {0}" -f $statusJson.LastUpdated)
+Start-Sleep -Seconds 2
 
-Write-SFXLog "INFO" "Phoenix dry-run completed successfully (Syncthing transport)."
+Write-Host "Dry-run complete."
 exit 0

@@ -1,80 +1,32 @@
 <#
-    Phoenix Demote (Syncthing Transport)
-    SemperFix Logging Format
-    --------------------------------------
-    ACTIVE node steps down to PASSIVE.
+    phoenix-demote.ps1 (Unified Config Edition)
+    Demotes SECONDARY from ACTIVE → PASSIVE after MASTERZERO recovery.
 #>
 
 param(
-    [string]$NodeRole = "SECONDARY-ACTIVE"
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
 )
 
-# --- CONFIG ---
-$LogPath     = "C:\SemperFix\Logs\phoenix-demote.log"
-$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-$MasterZeroPath = "C:\SemperFix\MasterZero"
-$ConfigBackupPath = "C:\SemperFix\ConfigBackup"
-$AssetsPath = "C:\SemperFix\Assets"
-
-# --- LOGGING ---
-function Write-SFXLog {
-    param([string]$Level, [string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
-    Write-Host $line
-    Add-Content -Path $LogPath -Value $line
-}
-
-Write-SFXLog "INFO" "Phoenix demote starting (Syncthing transport). NodeRole=$NodeRole"
-
-# --- VERIFY SYNCTHING FOLDERS ---
-foreach ($folder in @($MasterZeroPath, $ConfigBackupPath, $AssetsPath)) {
-    if (-not (Test-Path $folder)) {
-        Write-SFXLog "ERROR" "Required Syncthing folder missing: $folder"
-        exit 1
-    }
-    Write-SFXLog "INFO" "Verified Syncthing folder: $folder"
-}
-
-# --- VERIFY STATUS FILE ---
-if (-not (Test-Path $StatusPath)) {
-    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot demote."
+if (-not (Test-Path $PhoenixPath)) {
+    Write-Host "ERROR: phoenix.json missing at $PhoenixPath"
     exit 1
 }
 
-Write-SFXLog "INFO" "Phoenix status file found. Parsing..."
+$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+$now = Get-Date
 
-try {
-    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
-    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
-}
-catch {
-    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
-    exit 1
-}
+# Update status
+$phoenix.Status.Role  = "SECONDARY-PASSIVE"
+$phoenix.Status.State = "HEALTHY"
+$phoenix.Status.Timestamp = $now.ToString("o")
+$phoenix.Status.Message = "Recovery: SECONDARY demoted to PASSIVE."
 
-# --- DEMOTION LOGIC ---
-Write-SFXLog "INFO" "Demoting ACTIVE node to PASSIVE."
+# Record action
+$phoenix.Actions.LastAction = "Demote"
+$phoenix.Actions.History += "[$($now.ToString("o"))] SECONDARY demoted to PASSIVE."
 
-try {
-    Stop-Service -Name "PhoenixService"
-    Write-SFXLog "INFO" "Phoenix service stopped."
-}
-catch {
-    Write-SFXLog "WARN" "Phoenix service was not running or could not be stopped."
-}
+# Persist
+$phoenix | ConvertTo-Json -Depth 8 | Set-Content -Path $PhoenixPath -Encoding UTF8
 
-# --- UPDATE STATUS JSON ---
-$demoteRecord = @{
-    Role           = "SECONDARY-PASSIVE"
-    PreviousRole   = $statusJson.Role
-    DemotionSource = "ClusterController"
-    Timestamp      = (Get-Date).ToString("o")
-    Message        = "Node demoted to PASSIVE."
-}
-
-$demoteRecord | ConvertTo-Json -Depth 6 | Set-Content -Path $StatusPath
-
-Write-SFXLog "INFO" "Phoenix status updated for SECONDARY-PASSIVE."
-Write-SFXLog "INFO" "Phoenix demote completed successfully."
+Write-Host "SECONDARY demoted to PASSIVE."
 exit 0

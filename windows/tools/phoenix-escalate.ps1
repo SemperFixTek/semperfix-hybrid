@@ -1,58 +1,34 @@
 <#
-    Phoenix Escalate (Syncthing Transport)
-    SemperFix Logging Format
+    phoenix-escalate.ps1 (Unified Config Edition)
+    Escalates MASTERZERO → DEGRADED and hands control to SECONDARY.
 #>
 
 param(
-    [string]$Reason = "Unknown"
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
+    [string]$Reason = "Unknown escalation"
 )
 
-# --- CONFIG ---
-$LogPath     = "C:\SemperFix\Logs\phoenix-escalate.log"
-$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-
-# --- LOGGING ---
-function Write-SFXLog {
-    param([string]$Level, [string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
-    Write-Host $line
-    Add-Content -Path $LogPath -Value $line
-}
-
-Write-SFXLog "INFO" "Phoenix escalation starting (Syncthing transport)."
-Write-SFXLog "INFO" "Reason: $Reason"
-
-# --- VERIFY STATUS FILE ---
-if (-not (Test-Path $StatusPath)) {
-    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot escalate."
+if (-not (Test-Path $PhoenixPath)) {
+    Write-Host "ERROR: phoenix.json missing at $PhoenixPath"
     exit 1
 }
 
-Write-SFXLog "INFO" "Phoenix status file found. Parsing..."
+$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+$now = Get-Date
 
-try {
-    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
-    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
-}
-catch {
-    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
-    exit 1
-}
+# Update status
+$phoenix.Status.Role  = "SECONDARY-ACTIVE"
+$phoenix.Status.State = "DEGRADED"
+$phoenix.Status.EscalationReason = $Reason
+$phoenix.Status.Timestamp = $now.ToString("o")
+$phoenix.Status.Message = "Watchdog escalation executed."
 
-# --- ESCALATION ACTION ---
-Write-SFXLog "WARN" "Escalation triggered. Marking Phoenix status as DEGRADED."
+# Record action
+$phoenix.Actions.LastAction = "Escalate"
+$phoenix.Actions.History += "[$($now.ToString("o"))] Escalation: $Reason"
 
-$escalateRecord = @{
-    Role           = $statusJson.Role
-    Status         = "DEGRADED"
-    EscalationReason = $Reason
-    Timestamp      = (Get-Date).ToString("o")
-    Message        = "Phoenix escalation executed."
-}
+# Persist
+$phoenix | ConvertTo-Json -Depth 8 | Set-Content -Path $PhoenixPath -Encoding UTF8
 
-$escalateRecord | ConvertTo-Json -Depth 6 | Set-Content -Path $StatusPath
-
-Write-SFXLog "INFO" "Phoenix status updated to DEGRADED."
-Write-SFXLog "INFO" "Phoenix escalation completed."
+Write-Host "MASTERZERO escalated → DEGRADED."
 exit 0

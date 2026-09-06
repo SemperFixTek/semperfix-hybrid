@@ -1,18 +1,12 @@
 <#
-    Phoenix v2 Watchdog
-    Unified Config Edition — uses phoenix.json as the single source of truth.
-    Purpose:
-        - Validate MASTERZERO integrity
-        - Validate required paths/files/modules
-        - Validate Syncthing health (optional)
-        - Escalate to DEGRADED if critical checks fail
-        - Prevent split-brain
+    phoenix-watchdog.ps1 (Unified Config Edition)
+    Validates system integrity + Syncthing health.
+    Escalates MASTERZERO → DEGRADED when required.
 #>
 
 param(
-    [string]$PhoenixJson = "C:\SemperFix\ConfigBackup\phoenix.json",
-    [string]$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json",
-    [string]$LogPath     = "C:\SemperFix\Logs\phoenix-watchdog.log"
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
+    [string]$LogPath = "C:\SemperFix\Logs\phoenix-watchdog.log"
 )
 
 function Write-Log {
@@ -24,93 +18,58 @@ function Write-Log {
 }
 
 # Load phoenix.json
-try {
-    $Phoenix = Get-Content $PhoenixJson | ConvertFrom-Json
-    Write-Log "Loaded phoenix.json successfully."
-}
-catch {
-    Write-Log "Failed to load phoenix.json: $($_.Exception.Message)" "ERROR"
-    $EscReason = "Watchdog failure: phoenix.json unreadable."
-    goto ESCALATE
+if (-not (Test-Path $PhoenixPath)) {
+    Write-Log "phoenix.json missing at $PhoenixPath" "ERROR"
+    exit 1
 }
 
-# Extract watchdog config
-if (-not $Phoenix.Watchdog) {
-    Write-Log "phoenix.json missing Watchdog section." "ERROR"
-    $EscReason = "Watchdog failure: Missing Watchdog section in phoenix.json."
-    goto ESCALATE
+$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+Write-Log "Loaded phoenix.json successfully."
+
+# Load syncthing health function
+. "C:\SemperFix\Tools\phoenix-syncthing-health.ps1"
+
+# Evaluate Syncthing health
+$health = phoenix-syncthing-health -PhoenixPathInner $PhoenixPath
+
+if (-not $health.Healthy) {
+    Write-Log "Watchdog: Syncthing health degraded: $($health.Reason)" "WARN"
+
+    # Escalate MASTERZERO → DEGRADED
+    Write-Log "Watchdog: Escalating MASTERZERO → DEGRADED."
+    powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason $health.Reason
+
+    exit 0
 }
 
-$WD = $Phoenix.Watchdog
+Write-Log "Syncthing health OK."
 
-# Validate required paths
-foreach ($path in $WD.RequiredPaths.Values) {
-    if (-not (Test-Path $path)) {
-        Write-Log "Missing required path: $path" "ERROR"
-        $EscReason = "Missing required path: $path"
-        goto ESCALATE
+# Validate required paths/files/modules/folders
+$wd = $phoenix.Watchdog
+
+foreach ($path in $wd.RequiredPaths.GetEnumerator()) {
+    if (-not (Test-Path $path.Value)) {
+        Write-Log "Missing required path: $($path.Value)" "ERROR"
+        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required path: $($path.Value)"
+        exit 0
     }
 }
 
-# Validate required files
-foreach ($file in $WD.RequiredFiles) {
+foreach ($file in $wd.RequiredFiles) {
     if (-not (Test-Path $file)) {
         Write-Log "Missing required file: $file" "ERROR"
-        $EscReason = "Missing required file: $file"
-        goto ESCALATE
+        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required file: $file"
+        exit 0
     }
 }
 
-# Validate required folders
-foreach ($folder in $WD.RequiredFolders) {
+foreach ($folder in $wd.RequiredFolders) {
     if (-not (Test-Path $folder)) {
         Write-Log "Missing required folder: $folder" "ERROR"
-        $EscReason = "Missing required folder: $folder"
-        goto ESCALATE
+        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required folder: $folder"
+        exit 0
     }
 }
 
-# Validate required modules
-foreach ($module in $WD.RequiredModules) {
-    $modulePath = "C:\SemperFix\Tools\$module"
-    if (-not (Test-Path $modulePath)) {
-        Write-Log "Missing required module: $modulePath" "ERROR"
-        $EscReason = "Missing required module: $modulePath"
-        goto ESCALATE
-    }
-}
-
-# If we reach here, watchdog passes
-Write-Log "Watchdog health OK — no escalation required."
-return
-
-# Escalation block
-:ESCALATE
-
-Write-Log "Watchdog escalation triggered: $EscReason" "ERROR"
-
-# Load current phoenix-status.json
-try {
-    $Status = Get-Content $StatusPath | ConvertFrom-Json
-}
-catch {
-    Write-Log "phoenix-status.json unreadable during escalation." "ERROR"
-    # Create minimal status doc
-    $Status = @{
-        Role = "MASTERZERO"
-        Status = "DEGRADED"
-    }
-}
-
-# Update status
-$Status.Status = "DEGRADED"
-$Status.Role   = "SECONDARY-ACTIVE"   # Hand control to SECONDARY
-$Status.EscalationReason = $EscReason
-$Status.Timestamp = (Get-Date).ToString("o")
-$Status.Message = "Phoenix escalation executed."
-
-# Write updated status
-$Status | ConvertTo-Json -Depth 8 | Set-Content -Path $StatusPath -Encoding UTF8
-
-Write-Log "phoenix-status.json updated — MASTERZERO marked DEGRADED and SECONDARY promoted."
-return
+Write-Log "Watchdog: All checks passed. No escalation required."
+exit 0

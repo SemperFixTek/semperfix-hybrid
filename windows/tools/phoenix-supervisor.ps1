@@ -1,13 +1,11 @@
 <#
-    phoenix-supervisor.ps1 (Syncthing Edition)
-    Supervises Phoenix state using Syncthing and phoenix-status.json v2.
+    phoenix-supervisor.ps1 (Unified Config Edition)
+    Supervises Phoenix state using Syncthing + phoenix.json as single source of truth.
 #>
-
-# Phoenix Supervisor (Syncthing Edition)
 
 param(
     [int]$IntervalSeconds = 30,
-    [string]$StatusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json",
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
     [string]$LockPath = "C:\SemperFix\ConfigBackup\phoenix-supervisor.lock",
     [string]$LogPath = "C:\SemperFix\Logs\phoenix-supervisor.log",
     [ValidateSet("auto","manual")] [string]$Mode = "auto",
@@ -21,9 +19,6 @@ function Write-Log {
     $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
     Write-Host $line
 }
-
-# Load Syncthing health module (correct API key source)
-. "C:\SemperFix\tools\phoenix-syncthing-health.ps1"
 
 function Acquire-Lock {
     param([string]$Path)
@@ -45,7 +40,8 @@ function Invoke-Script {
     if ($proc) { return $proc.ExitCode } else { return 1 }
 }
 
-. "C:\SemperFix\tools\phoenix-syncthing-health.ps1"
+# Syncthing health
+. "C:\SemperFix\Tools\phoenix-syncthing-health.ps1"
 
 Write-Log "Phoenix supervisor starting in $Mode mode. Interval ${IntervalSeconds}s."
 
@@ -64,57 +60,68 @@ while ($true) {
             Write-Log "Syncthing health degraded: $($health.Reason)" "WARN"
         }
 
-        # 2. Load status
-        if (-not (Test-Path $StatusPath)) {
-            Write-Log "Status file missing at $StatusPath" "ERROR"
+        # 2. Load phoenix.json
+        if (-not (Test-Path $PhoenixPath)) {
+            Write-Log "phoenix.json missing at $PhoenixPath" "ERROR"
             Release-Lock -Path $LockPath
             Start-Sleep -Seconds ([math]::Min($backoff, $MaxBackoffSeconds))
             $backoff = [math]::Min($backoff * 2, $MaxBackoffSeconds)
             continue
         }
 
-        $status = Get-Content -Raw -Path $StatusPath | ConvertFrom-Json
-        $role   = $status.Role
-        $state  = $status.Status
+        $phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
 
-        Write-Log "Supervisor view: Role=$role Status=$state"
+        $nodeRole   = $phoenix.NodeRole
+        $statusRole = $phoenix.Status.Role
+        $state      = $phoenix.Status.State
+
+        Write-Log "Supervisor view: NodeRole=$nodeRole StatusRole=$statusRole State=$state"
 
         $shouldPromote = $false
         $shouldDemote  = $false
         $shouldRecover = $false
 
-        if ($role -eq "SECONDARY-PASSIVE" -and $state -eq "FAILOVER_ALLOWED" -and $health.Healthy) {
+        # SECONDARY failover
+        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-PASSIVE" -and $state -eq "FAILOVER_ALLOWED" -and $health.Healthy) {
             $shouldPromote = $true
         }
 
-        if ($role -eq "SECONDARY-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
-            $shouldRecover = $true
+        # SECONDARY recovery (demote self when MASTERZERO recovered)
+        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
+            $shouldDemote = $true
         }
 
-        if ($role -eq "MASTERZERO-ACTIVE" -and $state -eq "DEGRADED" -and $health.Healthy) {
-            $shouldDemote = $true
+        # MASTERZERO degraded → hand off / stay out of control
+        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "DEGRADED" -and $health.Healthy) {
+            # No direct action here; watchdog + promote handle failover.
+            Write-Log "MASTERZERO marked DEGRADED; waiting for failover/recovery logic."
+        }
+
+        # MASTERZERO recovery → reclaim control
+        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
+            $shouldRecover = $true
         }
 
         if ($shouldPromote) {
             Write-Log "Decision: promote this node to SECONDARY-ACTIVE."
             if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\tools\phoenix-promote.ps1" -Args @()
+                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-promote.ps1" -Args @()
                 Write-Log "Promotion exit code: $rc"
             } else {
                 Write-Log "Manual mode: promotion not executed."
             }
         } elseif ($shouldRecover) {
-            Write-Log "Decision: recover MASTERZERO."
+            Write-Log "Decision: recover MASTERZERO (reclaim control)."
             if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\tools\phoenix-recover.ps1" -Args @()
+                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-recover.ps1" -Args @()
                 Write-Log "Recovery exit code: $rc"
             } else {
                 Write-Log "Manual mode: recovery not executed."
             }
         } elseif ($shouldDemote) {
-            Write-Log "Decision: demote this node from ACTIVE."
+            Write-Log "Decision: demote this SECONDARY from ACTIVE to PASSIVE."
             if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\tools\phoenix-demote.ps1" -Args @()
+                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-demote.ps1" -Args @()
                 Write-Log "Demotion exit code: $rc"
             } else {
                 Write-Log "Manual mode: demotion not executed."

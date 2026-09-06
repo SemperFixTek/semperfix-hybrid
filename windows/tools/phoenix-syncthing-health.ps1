@@ -1,71 +1,65 @@
 <#
-    Syncthing Health Module
-    SemperFix Logging Format
-    --------------------------------------
-    Provides reusable health checks for Phoenix.
+    phoenix-syncthing-health.ps1 (Unified Config Edition)
+    Provides a function phoenix-syncthing-health for supervisor compatibility.
 #>
 
-# --- CONFIG ---
-$LogPath = "C:\SemperFix\Logs\syncthing-health.log"
-$Config = Get-Content "C:\SemperFix\Tools\semperfix-config.json" | ConvertFrom-Json
-$ApiKey = $Config.ApiKey
-$ApiUrl  = "http://MASTERZERO:8384"
-
-# --- LOGGING ---
-function Write-SFXLog {
-    param([string]$Level, [string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
-    Write-Host $line
-    Add-Content -Path $LogPath -Value $line
-}
-
-Write-SFXLog "INFO" "Syncthing health check starting."
-
-# --- API CALL ---
-try {
-    $systemStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/system/status" -Headers @{ "X-API-Key" = $ApiKey }
-    Write-SFXLog "INFO" "Syncthing system status retrieved."
-}
-catch {
-    Write-SFXLog "ERROR" "Failed to reach Syncthing API: $($_.Exception.Message)"
-    return @{ Healthy = $false; Reason = "API unreachable" }
-}
-
-# --- FOLDER STATUS ---
-try {
-    $folderStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=masterzero" -Headers @{ "X-API-Key" = $ApiKey }
-    $configStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=config-backup" -Headers @{ "X-API-Key" = $ApiKey }
-    $assetsStatus = Invoke-RestMethod -Uri "$ApiUrl/rest/db/status?folder=assets" -Headers @{ "X-API-Key" = $ApiKey }
-
-    Write-SFXLog "INFO" "Syncthing folder statuses retrieved."
-}
-catch {
-    Write-SFXLog "ERROR" "Failed to retrieve folder statuses: $($_.Exception.Message)"
-    return @{ Healthy = $false; Reason = "Folder status error" }
-}
+param(
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
+)
 
 function phoenix-syncthing-health {
+    param(
+        [string]$PhoenixPathInner = "C:\SemperFix\ConfigBackup\phoenix.json"
+    )
 
-    # --- HEALTH LOGIC ---
-    $healthy =
-        ($folderStatus.state -eq "idle") -and
-        ($configStatus.state -eq "idle") -and
-        ($assetsStatus.state -eq "idle")
-
-    if ($healthy) {
-        Write-SFXLog "INFO" "Syncthing health: GOOD (all folders idle)."
-    }
-    else {
-        Write-SFXLog "WARN" "Syncthing health: DEGRADED (one or more folders not idle)."
+    if (-not (Test-Path $PhoenixPathInner)) {
+        return @{
+            Healthy = $false
+            Reason  = "phoenix.json missing"
+            Status  = $null
+        }
     }
 
-    # --- RETURN STRUCT ---
-    return @{
-        Healthy       = $healthy
-        SystemStatus  = $systemStatus
-        MasterZero    = $folderStatus
-        ConfigBackup  = $configStatus
-        Assets        = $assetsStatus
+    $phoenix = Get-Content -Raw -Path $PhoenixPathInner | ConvertFrom-Json
+
+    # Determine local node
+    $localNode = $phoenix.Nodes | Where-Object { $_.Name -eq $phoenix.NodeRole }
+
+    if (-not $localNode) {
+        return @{
+            Healthy = $false
+            Reason  = "Local node not found in phoenix.json"
+            Status  = $null
+        }
+    }
+
+    try {
+        $resp = Invoke-RestMethod -Uri "$($localNode.ApiUrl)/rest/system/status" `
+                                  -Headers @{ "X-API-Key" = $localNode.ApiKey }
+
+        return @{
+            Healthy = $true
+            Reason  = "OK"
+            Status  = $resp
+        }
+    }
+    catch {
+        return @{
+            Healthy = $false
+            Reason  = $_.Exception.Message
+            Status  = $null
+        }
     }
 }
+
+# If script is run directly, update phoenix.json
+$health = phoenix-syncthing-health -PhoenixPathInner $PhoenixPath
+$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+$now = Get-Date
+
+$phoenix.Syncthing = $health
+$phoenix.Phoenix.LastUpdate = $now.ToString("o")
+
+$phoenix | ConvertTo-Json -Depth 8 | Set-Content -Path $PhoenixPath -Encoding UTF8
+
+Write-Host "Syncthing health updated."
