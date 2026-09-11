@@ -1,143 +1,146 @@
 <#
-    phoenix-supervisor.ps1 (Unified Config Edition)
-    Supervises Phoenix state using Syncthing + phoenix.json as single source of truth.
+ Phoenix v2 Supervisor
+ Cluster-level coordinator
+ Runs on all nodes, but ONLY ACTIVE node writes phoenix.cluster.json
+ Reads:
+   - phoenix.masterzero.json
+   - phoenix.secondary.json
+   - phoenix.offsite.json
+ Writes:
+   - phoenix.cluster.json (ACTIVE node only)
 #>
 
-param(
-    [int]$IntervalSeconds = 30,
-    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
-    [string]$LockPath = "C:\SemperFix\ConfigBackup\phoenix-supervisor.lock",
-    [string]$LogPath = "C:\SemperFix\Logs\phoenix-supervisor.log",
-    [ValidateSet("auto","manual")] [string]$Mode = "auto",
-    [int]$MaxBackoffSeconds = 300
-)
+Set-Location "C:\SemperFix\Tools"
 
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[$ts] [$Level] $Message"
-    $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
-    Write-Host $line
+$PhoenixRoot = "C:\SemperFix\ConfigBackup"
+
+# Node-local files
+$NodeFiles = @{
+    "MASTERZERO" = "$PhoenixRoot\phoenix.masterzero.json"
+    "SECONDARY"  = "$PhoenixRoot\phoenix.secondary.json"
+    "OFFSITE"    = "$PhoenixRoot\phoenix.offsite.json"
 }
 
-function Acquire-Lock {
-    param([string]$Path)
-    try {
-        $content = @{ pid = $PID; ts = (Get-Date).ToString("o") } | ConvertTo-Json
-        Set-Content -Path $Path -Value $content -NoNewline -Encoding UTF8 -ErrorAction Stop
-        return $true
-    } catch { return $false }
+# Cluster file
+$ClusterFile = "$PhoenixRoot\phoenix.cluster.json"
+
+function Load-NodeState {
+    param($role)
+
+    $path = $NodeFiles[$role]
+    if (Test-Path $path) {
+        return Get-Content $path -Raw | ConvertFrom-Json
+    }
+    else {
+        Write-Warning "[SUPERVISOR] Missing node-local file for $role"
+        return $null
+    }
 }
 
-function Release-Lock {
-    param([string]$Path)
-    if (Test-Path $Path) { Remove-Item $Path -Force -ErrorAction SilentlyContinue }
-}
-
-function Invoke-Script {
-    param([string]$ScriptPath, [string[]]$Args)
-    $proc = Start-Process -FilePath "powershell" -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-File",$ScriptPath,$Args -Wait -PassThru -ErrorAction SilentlyContinue
-    if ($proc) { return $proc.ExitCode } else { return 1 }
-}
-
-# Syncthing health
-. "C:\SemperFix\Tools\phoenix-syncthing-health.ps1"
-
-Write-Log "Phoenix supervisor starting in $Mode mode. Interval ${IntervalSeconds}s."
-
-$backoff = 1
 while ($true) {
-    if (-not (Acquire-Lock -Path $LockPath)) {
-        Write-Log "Lock exists. Another supervisor may be running. Sleeping $IntervalSeconds seconds." "WARN"
-        Start-Sleep -Seconds $IntervalSeconds
+
+    # ------------------------------------------------------------
+    # LOAD ALL NODE-LOCAL STATES
+    # ------------------------------------------------------------
+    $masterzero = Load-NodeState "MASTERZERO"
+    $secondary  = Load-NodeState "SECONDARY"
+    $offsite    = Load-NodeState "OFFSITE"
+
+    if (-not $masterzero -or -not $secondary -or -not $offsite) {
+        Write-Warning "[SUPERVISOR] One or more node-local files missing."
+        Start-Sleep -Seconds 10
         continue
     }
 
-    try {
-        # 1. Syncthing health
-        $health = phoenix-syncthing-health
-        if (-not $health.Healthy) {
-            Write-Log "Syncthing health degraded: $($health.Reason)" "WARN"
-        }
+    # ------------------------------------------------------------
+    # DETERMINE ACTIVE NODE (based on lineage + health)
+    # ------------------------------------------------------------
+    $lineage = $masterzero.Phoenix.Lineage  # lineage always stored in MASTERZERO file
 
-        # 2. Load phoenix.json
-        if (-not (Test-Path $PhoenixPath)) {
-            Write-Log "phoenix.json missing at $PhoenixPath" "ERROR"
-            Release-Lock -Path $LockPath
-            Start-Sleep -Seconds ([math]::Min($backoff, $MaxBackoffSeconds))
-            $backoff = [math]::Min($backoff * 2, $MaxBackoffSeconds)
-            continue
-        }
+    $masterHealthy   = $masterzero.Syncthing.Healthy
+    $secondaryHealthy = $secondary.Syncthing.Healthy
 
-        $phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+    $activeNode = $null
 
-        $nodeRole   = $phoenix.NodeRole
-        $statusRole = $phoenix.Status.Role
-        $state      = $phoenix.Status.State
-
-        Write-Log "Supervisor view: NodeRole=$nodeRole StatusRole=$statusRole State=$state"
-
-        $shouldPromote = $false
-        $shouldDemote  = $false
-        $shouldRecover = $false
-
-        # SECONDARY failover
-        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-PASSIVE" -and $state -eq "FAILOVER_ALLOWED" -and $health.Healthy) {
-            $shouldPromote = $true
-        }
-
-        # SECONDARY recovery (demote self when MASTERZERO recovered)
-        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
-            $shouldDemote = $true
-        }
-
-        # MASTERZERO degraded → hand off / stay out of control
-        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "DEGRADED" -and $health.Healthy) {
-            # No direct action here; watchdog + promote handle failover.
-            Write-Log "MASTERZERO marked DEGRADED; waiting for failover/recovery logic."
-        }
-
-        # MASTERZERO recovery → reclaim control
-        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
-            $shouldRecover = $true
-        }
-
-        if ($shouldPromote) {
-            Write-Log "Decision: promote this node to SECONDARY-ACTIVE."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-promote.ps1" -Args @()
-                Write-Log "Promotion exit code: $rc"
-            } else {
-                Write-Log "Manual mode: promotion not executed."
-            }
-        } elseif ($shouldRecover) {
-            Write-Log "Decision: recover MASTERZERO (reclaim control)."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-recover.ps1" -Args @()
-                Write-Log "Recovery exit code: $rc"
-            } else {
-                Write-Log "Manual mode: recovery not executed."
-            }
-        } elseif ($shouldDemote) {
-            Write-Log "Decision: demote this SECONDARY from ACTIVE to PASSIVE."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-demote.ps1" -Args @()
-                Write-Log "Demotion exit code: $rc"
-            } else {
-                Write-Log "Manual mode: demotion not executed."
-            }
-        } else {
-            Write-Log "No role change required."
-        }
-
-        $backoff = 1
+    if ($lineage -eq "MASTERZERO" -and $masterHealthy) {
+        $activeNode = "MASTERZERO"
     }
-    catch {
-        Write-Log "Supervisor loop exception: $($_.Exception.Message)" "ERROR"
+    elseif ($lineage -eq "MASTERZERO" -and -not $masterHealthy -and $secondaryHealthy) {
+        # Failover condition
+        $activeNode = "SECONDARY"
+        $lineage = "SECONDARY"
     }
-    finally {
-        Release-Lock -Path $LockPath
+    elseif ($lineage -eq "SECONDARY" -and $secondaryHealthy) {
+        $activeNode = "SECONDARY"
+    }
+    elseif ($lineage -eq "SECONDARY" -and -not $secondaryHealthy -and $masterHealthy) {
+        # Recovery condition
+        $activeNode = "MASTERZERO"
+        $lineage = "MASTERZERO"
+    }
+    else {
+        # Worst case: both unhealthy → MASTERZERO remains lineage
+        $activeNode = "MASTERZERO"
     }
 
-    Start-Sleep -Seconds $IntervalSeconds
+    Write-Host "[SUPERVISOR] ActiveNode=$activeNode Lineage=$lineage"
+
+    # ------------------------------------------------------------
+    # BUILD CLUSTER STATE (but only write if THIS node is ACTIVE)
+    # ------------------------------------------------------------
+    $cluster = [ordered]@{
+        ClusterName = "SemperFix-Hybrid"
+        MasterNode  = "MASTERZERO"
+
+        Nodes = $masterzero.Nodes
+
+        Phoenix = @{
+            Version   = "2.0.0"
+            Lineage   = $lineage
+            Timestamp = (Get-Date).ToString("o")
+        }
+
+        Status = @{
+            Role             = "$activeNode-ACTIVE"
+            State            = ($activeNode -eq "MASTERZERO" ? $masterzero.Status.State : $secondary.Status.State)
+            EscalationReason = $null
+            Message          = "Cluster state updated by $activeNode supervisor."
+            Timestamp        = (Get-Date).ToString("o")
+        }
+
+        Syncthing = @{
+            MASTERZERO = @{
+                Healthy = $masterzero.Syncthing.Healthy
+                Reason  = $masterzero.Syncthing.Reason
+            }
+            SECONDARY = @{
+                Healthy = $secondary.Syncthing.Healthy
+                Reason  = $secondary.Syncthing.Reason
+            }
+            OFFSITE = @{
+                Healthy = $offsite.Syncthing.Healthy
+                Reason  = $offsite.Syncthing.Reason
+            }
+        }
+
+        Actions = @{
+            LastAction = "SupervisorUpdate"
+            History    = @()
+        }
+    }
+
+    # ------------------------------------------------------------
+    # WRITE CLUSTER FILE ONLY IF THIS NODE IS ACTIVE
+    # ------------------------------------------------------------
+    $thisNodeRole = $masterzero.NodeRole  # this script runs on MASTERZERO or SECONDARY or OFFSITE
+
+    if ($thisNodeRole -eq $activeNode) {
+        Write-Host "[SUPERVISOR] Writing cluster state (phoenix.cluster.json)"
+        $cluster | ConvertTo-Json -Depth 8 | Set-Content $ClusterFile -Encoding UTF8
+    }
+    else {
+        Write-Host "[SUPERVISOR] This node is not ACTIVE → cluster.json not written."
+    }
+
+    Start-Sleep -Seconds 10
 }

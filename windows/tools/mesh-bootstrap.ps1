@@ -1,43 +1,122 @@
-param(
-    [string]$ConfigPath = "/mnt/c/SemperFix/Tools/...
-mesh-config.json"
+<#
+ Mesh v2 — mesh-bootstrap.ps1 (MASTERZERO)
+ Node-local bootstrap validation
+ Writes ONLY to phoenix.masterzero.json
+#>
 
-)
+Set-Location "C:\SemperFix\Tools"
 
-$result = [ordered]@{
-    NodeRole  = $null
-    Timestamp = (Get-Date).ToString("o")
-    System    = $null
-    Errors    = @()
+$PhoenixRoot = "C:\SemperFix\ConfigBackup"
+
+# ------------------------------------------------------------
+# SELECT PHOENIX FILE (cluster or full topology only)
+# ------------------------------------------------------------
+$phoenixFile = Get-ChildItem $PhoenixRoot -Filter "phoenix*.json" |
+    Where-Object {
+        $_.Name -eq "phoenix.json" -or
+        $_.Name -eq "phoenix.cluster.json"
+    } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+if (-not $phoenixFile) {
+    Write-Output "{""Error"":""No usable phoenix.json or phoenix.cluster.json found""}"
+    exit 1
 }
 
-# Load config
+$phoenixJson = Get-Content $phoenixFile.FullName -Raw | ConvertFrom-Json
+
+# ------------------------------------------------------------
+# DETERMINE NODE ROLE
+# ------------------------------------------------------------
+$nodeRole = $phoenixJson.NodeRole
+if (-not $nodeRole) {
+    Write-Output "{""Error"":""NodeRole missing in phoenix file""}"
+    exit 1
+}
+
+# MASTERZERO only
+$nodeLocalPath = "$PhoenixRoot\phoenix.masterzero.json"
+
+# ------------------------------------------------------------
+# EXTRACT NODE ENTRY (cluster or single-node schema)
+# ------------------------------------------------------------
+if ($phoenixJson.Nodes) {
+    $nodeEntry = $phoenixJson.Nodes | Where-Object { $_.Name -eq $nodeRole }
+} else {
+    $nodeEntry = $phoenixJson
+}
+
+if (-not $nodeEntry) {
+    Write-Output "{""Error"":""Node entry not found for role $nodeRole""}"
+    exit 1
+}
+
+$apiUrl       = $nodeEntry.ApiUrl
+$meshEndpoint = $nodeEntry.MeshEndpoint
+
+# ------------------------------------------------------------
+# ENVIRONMENT CHECKS
+# ------------------------------------------------------------
+
+# 1. Syncthing API reachability
+$apiOK = $false
 try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $ApiKey  = $config.ApiKey
-    $BaseUrl = $config.BaseUrl
-    $result.NodeRole = $config.NodeRole
+    $pong = Invoke-RestMethod -Uri "$apiUrl/rest/system/ping" -TimeoutSec 5
+    $apiOK = ($pong -eq "pong")
 }
 catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
+    $apiOK = $false
 }
 
-# Load API helper
+# 2. QUIC endpoint reachability
+function Test-QuicEndpoint {
+    param($endpoint)
+
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $host, $port = $endpoint.Replace("quic://","").Split(":")
+        $client.Connect($host, [int]$port)
+        $client.Close()
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+$quicOK = Test-QuicEndpoint $meshEndpoint
+
+# 3. WSL availability
+$wslOK = $false
 try {
-    . "/mnt/c/SemperFix/Tools/syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
+    $wslOut = wsl.exe -e bash -c "echo WSL_OK" 2>$null
+    if ($wslOut -match "WSL_OK") {
+        $wslOK = $true
+    }
 }
 catch {
-    $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
+    $wslOK = $false
 }
 
-# System status
-try {
-    $result.System = Invoke-SyncthingApi -Path "/rest/system/status"
-}
-catch {
-    $result.Errors += "System status API failed: $($_.Exception.Message)"
+# ------------------------------------------------------------
+# UPDATE NODE-LOCAL MESH BOOTSTRAP STATE
+# ------------------------------------------------------------
+$phoenixJson.Mesh = @{
+    BootstrapOK       = ($apiOK -and $quicOK -and $wslOK)
+    ApiReachable      = $apiOK
+    QuicReachable     = $quicOK
+    WslAvailable      = $wslOK
+    LastBootstrap     = (Get-Date).ToString("o")
+    LastError         = $null
 }
 
-$result | ConvertTo-Json -Depth 6
+# ------------------------------------------------------------
+# WRITE NODE-LOCAL FILE (MASTERZERO ONLY)
+# ------------------------------------------------------------
+$phoenixJson | ConvertTo-Json -Depth 10 | Set-Content $nodeLocalPath -Encoding UTF8
+
+# ------------------------------------------------------------
+# OUTPUT PURE JSON FOR jq
+# ------------------------------------------------------------
+$phoenixJson.Mesh | ConvertTo-Json -Depth 10

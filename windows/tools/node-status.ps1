@@ -1,60 +1,101 @@
-# Phoenix Node Status — Updated to use global config loader
+# Phoenix Node Status — Unified Edition
 
-# 1. Import global Phoenix configuration
-. "/mnt/c/SemperFix/Tools/phoenix-config.ps1"
+# 1. Load unified Phoenix config
+$phoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
 
-# 2. Load config from global object
-$config = $Global:PhoenixConfig
+if (!(Test-Path $phoenixPath)) {
+    Write-Host "ERROR: phoenix.json not found at $phoenixPath"
+    exit 1
+}
+
+$config = Get-Content $phoenixPath -Raw | ConvertFrom-Json
+
+# 2. Determine this node's identity
+$nodeName = $config.NodeRole
+$nodeInfo = $config.Nodes | Where-Object { $_.Name -eq $nodeName }
+
+if ($null -eq $nodeInfo) {
+    Write-Host "ERROR: NodeRole '$nodeName' not found in phoenix.json Nodes[]"
+    exit 1
+}
+
+$apiUrl = $nodeInfo.ApiUrl
+$apiKey = $nodeInfo.ApiKey
 
 # 3. Prepare output object
 $result = [ordered]@{
-    Timestamp    = (Get-Date).ToString("o")
-    ApiHealthy   = $false
-    DeviceCount  = 0
-    FolderCount  = 0
-    Errors       = @()
-    folders      = @()
+    Timestamp          = (Get-Date).ToString("o")
+
+    # Phoenix identity
+    NodeRole           = $config.NodeRole
+    PhoenixRole        = $config.Status.Role
+    PhoenixState       = $config.Status.State
+    PhoenixMessage     = $config.Status.Message
+
+    # Phoenix health
+    MeshHealthy        = $config.Syncthing.Status.Healthy
+    SyncthingReason    = $config.Syncthing.Status.Reason
+
+    DiskOK             = $config.Health.DiskOK
+    PathsOK            = $config.Health.PathsOK
+    FilesOK            = $config.Health.FilesOK
+    ModulesOK          = $config.Health.ModulesOK
+    FoldersOK          = $config.Health.FoldersOK
+
+    # Syncthing live API health
+    ApiHealthy         = $false
+    Version            = $null
+    DeviceCount        = 0
+    FolderCount        = 0
+    Peers              = @()
+    Folders            = @()
+    Errors             = @()
 }
 
-# 4. Validate config loaded
-if ($null -eq $config) {
-    $result.Errors += "Config load failure: $Global:PhoenixConfigPath not readable"
-    $result | ConvertTo-Json -Depth 6
-    exit
-}
-
-# 5. Extract API URL and key
-$apiUrl = $config.ApiUrl
-$apiKey = $config.ApiKey
-
+# 4. Validate API config
 if ([string]::IsNullOrWhiteSpace($apiUrl) -or
     [string]::IsNullOrWhiteSpace($apiKey)) {
 
-    $result.Errors += "Invalid API configuration"
+    $result.Errors += "Invalid API configuration in phoenix.json"
     $result | ConvertTo-Json -Depth 6
     exit
 }
 
-# 6. Build Syncthing API headers
-$headers = @{
-    "X-API-Key" = $apiKey
-}
+$headers = @{ "X-API-Key" = $apiKey }
 
-# 7. Query Syncthing API — /rest/system/status
+# 5. Syncthing system status
 try {
     $sys = Invoke-RestMethod -Uri "$apiUrl/rest/system/status" -Headers $headers -Method Get
-    $result.ApiHealthy = $true
+    $result.ApiHealthy  = $true
     $result.DeviceCount = $sys.numConnections
 }
 catch {
     $result.Errors += "System status API failed: $($_.Exception.Message)"
 }
 
-# 8. Query Syncthing API — /rest/system/config
+# 6. Syncthing version
+try {
+    $ver = Invoke-RestMethod -Uri "$apiUrl/rest/system/version" -Headers $headers -Method Get
+    $result.Version = $ver.version
+}
+catch {
+    $result.Errors += "Version API failed: $($_.Exception.Message)"
+}
+
+# 7. Syncthing peers
+try {
+    $peers = Invoke-RestMethod -Uri "$apiUrl/rest/system/peers" -Headers $headers -Method Get
+    $result.Peers = $peers
+}
+catch {
+    $result.Errors += "Peers API failed: $($_.Exception.Message)"
+}
+
+# 8. Syncthing folder config
 try {
     $cfg = Invoke-RestMethod -Uri "$apiUrl/rest/system/config" -Headers $headers -Method Get
     $result.FolderCount = $cfg.folders.Count
-    $result.folders     = $cfg.folders
+    $result.Folders     = $cfg.folders
 }
 catch {
     $result.Errors += "Folder status API failed: $($_.Exception.Message)"
