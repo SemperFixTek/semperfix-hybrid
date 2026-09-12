@@ -14,7 +14,7 @@ else
 fi
 
 # --- Ping Windows Syncthing API ---
-API=$(curl -s --max-time 10 http://localhost:8384/rest/system/ping)
+API=$(curl -s --max-time 10 http://192.168.1.241:8384/rest/system/ping)
 
 if [[ "$API" == *"pong"* ]]; then
     echo "[OK] Windows API reachable" | tee -a "$LOG"
