@@ -1,146 +1,74 @@
-<#
- Phoenix v2 Supervisor
- Cluster-level coordinator
- Runs on all nodes, but ONLY ACTIVE node writes phoenix.cluster.json
- Reads:
-   - phoenix.masterzero.json
-   - phoenix.secondary.json
-   - phoenix.offsite.json
- Writes:
-   - phoenix.cluster.json (ACTIVE node only)
-#>
+# Phoenix v2 — Windows Supervisor
+# Monitors Syncthing API, Mesh health, and activation status.
+# Writes supervisor-status.json for WSL + Windows coordination.
 
-Set-Location "C:\SemperFix\Tools"
+$ErrorActionPreference = "Stop"
 
-$PhoenixRoot = "C:\SemperFix\ConfigBackup"
+# Paths
+$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
+$ConfigPath  = "C:\SemperFix\ConfigBackup\syncthing-config.json"
+$StatusPath  = "C:\SemperFix\ConfigBackup\supervisor-status.json"
 
-# Node-local files
-$NodeFiles = @{
-    "MASTERZERO" = "$PhoenixRoot\phoenix.masterzero.json"
-    "SECONDARY"  = "$PhoenixRoot\phoenix.secondary.json"
-    "OFFSITE"    = "$PhoenixRoot\phoenix.offsite.json"
+# Load Phoenix config
+$phoenix = Get-Content $PhoenixPath | ConvertFrom-Json
+$NodeRole = $phoenix.NodeRole
+$ApiUrl   = $phoenix.ApiUrl
+
+# Load Syncthing API key
+$config = Get-Content $ConfigPath | ConvertFrom-Json
+$ApiKey = $config.gui.apikey
+
+# Prepare headers
+$Headers = @{ "X-API-Key" = $ApiKey }
+
+# Supervisor fields
+$ApiOK       = $false
+$StatusOK    = $false
+$MeshOK      = $false
+$ActivationOK = $false
+
+# Check API ping
+try {
+    $pong = Invoke-RestMethod -Uri "$ApiUrl/rest/system/ping" -Headers $Headers -Method Get
+    if ($pong -eq "pong") { $ApiOK = $true }
+} catch {}
+
+# Check system status
+try {
+    Invoke-RestMethod -Uri "$ApiUrl/rest/system/status" -Headers $Headers -Method Get | Out-Null
+    $StatusOK = $true
+} catch {}
+
+# Mesh health (LAN ping)
+try {
+    $LanIP = ($ApiUrl.Split("/")[2].Split(":")[0])
+    $MeshOK = Test-Connection -ComputerName $LanIP -Count 1 -Quiet
+} catch {}
+
+# Activation status (read last activation result)
+$ActivationFile = "C:\SemperFix\ConfigBackup\activation-status.json"
+if (Test-Path $ActivationFile) {
+    try {
+        $activation = Get-Content $ActivationFile | ConvertFrom-Json
+        $ActivationOK = $activation.Activation.ActivationOK
+    } catch {}
 }
 
-# Cluster file
-$ClusterFile = "$PhoenixRoot\phoenix.cluster.json"
-
-function Load-NodeState {
-    param($role)
-
-    $path = $NodeFiles[$role]
-    if (Test-Path $path) {
-        return Get-Content $path -Raw | ConvertFrom-Json
-    }
-    else {
-        Write-Warning "[SUPERVISOR] Missing node-local file for $role"
-        return $null
+# Build supervisor JSON
+$result = [ordered]@{
+    NodeRole      = $NodeRole
+    ApiUrl        = $ApiUrl
+    Supervisor    = @{
+        ApiOK        = $ApiOK
+        StatusOK     = $StatusOK
+        MeshOK       = $MeshOK
+        ActivationOK = $ActivationOK
+        Timestamp    = (Get-Date).ToString("o")
     }
 }
 
-while ($true) {
+# Write to file
+$result | ConvertTo-Json -Depth 10 | Set-Content $StatusPath
 
-    # ------------------------------------------------------------
-    # LOAD ALL NODE-LOCAL STATES
-    # ------------------------------------------------------------
-    $masterzero = Load-NodeState "MASTERZERO"
-    $secondary  = Load-NodeState "SECONDARY"
-    $offsite    = Load-NodeState "OFFSITE"
-
-    if (-not $masterzero -or -not $secondary -or -not $offsite) {
-        Write-Warning "[SUPERVISOR] One or more node-local files missing."
-        Start-Sleep -Seconds 10
-        continue
-    }
-
-    # ------------------------------------------------------------
-    # DETERMINE ACTIVE NODE (based on lineage + health)
-    # ------------------------------------------------------------
-    $lineage = $masterzero.Phoenix.Lineage  # lineage always stored in MASTERZERO file
-
-    $masterHealthy   = $masterzero.Syncthing.Healthy
-    $secondaryHealthy = $secondary.Syncthing.Healthy
-
-    $activeNode = $null
-
-    if ($lineage -eq "MASTERZERO" -and $masterHealthy) {
-        $activeNode = "MASTERZERO"
-    }
-    elseif ($lineage -eq "MASTERZERO" -and -not $masterHealthy -and $secondaryHealthy) {
-        # Failover condition
-        $activeNode = "SECONDARY"
-        $lineage = "SECONDARY"
-    }
-    elseif ($lineage -eq "SECONDARY" -and $secondaryHealthy) {
-        $activeNode = "SECONDARY"
-    }
-    elseif ($lineage -eq "SECONDARY" -and -not $secondaryHealthy -and $masterHealthy) {
-        # Recovery condition
-        $activeNode = "MASTERZERO"
-        $lineage = "MASTERZERO"
-    }
-    else {
-        # Worst case: both unhealthy → MASTERZERO remains lineage
-        $activeNode = "MASTERZERO"
-    }
-
-    Write-Host "[SUPERVISOR] ActiveNode=$activeNode Lineage=$lineage"
-
-    # ------------------------------------------------------------
-    # BUILD CLUSTER STATE (but only write if THIS node is ACTIVE)
-    # ------------------------------------------------------------
-    $cluster = [ordered]@{
-        ClusterName = "SemperFix-Hybrid"
-        MasterNode  = "MASTERZERO"
-
-        Nodes = $masterzero.Nodes
-
-        Phoenix = @{
-            Version   = "2.0.0"
-            Lineage   = $lineage
-            Timestamp = (Get-Date).ToString("o")
-        }
-
-        Status = @{
-            Role             = "$activeNode-ACTIVE"
-            State            = ($activeNode -eq "MASTERZERO" ? $masterzero.Status.State : $secondary.Status.State)
-            EscalationReason = $null
-            Message          = "Cluster state updated by $activeNode supervisor."
-            Timestamp        = (Get-Date).ToString("o")
-        }
-
-        Syncthing = @{
-            MASTERZERO = @{
-                Healthy = $masterzero.Syncthing.Healthy
-                Reason  = $masterzero.Syncthing.Reason
-            }
-            SECONDARY = @{
-                Healthy = $secondary.Syncthing.Healthy
-                Reason  = $secondary.Syncthing.Reason
-            }
-            OFFSITE = @{
-                Healthy = $offsite.Syncthing.Healthy
-                Reason  = $offsite.Syncthing.Reason
-            }
-        }
-
-        Actions = @{
-            LastAction = "SupervisorUpdate"
-            History    = @()
-        }
-    }
-
-    # ------------------------------------------------------------
-    # WRITE CLUSTER FILE ONLY IF THIS NODE IS ACTIVE
-    # ------------------------------------------------------------
-    $thisNodeRole = $masterzero.NodeRole  # this script runs on MASTERZERO or SECONDARY or OFFSITE
-
-    if ($thisNodeRole -eq $activeNode) {
-        Write-Host "[SUPERVISOR] Writing cluster state (phoenix.cluster.json)"
-        $cluster | ConvertTo-Json -Depth 8 | Set-Content $ClusterFile -Encoding UTF8
-    }
-    else {
-        Write-Host "[SUPERVISOR] This node is not ACTIVE → cluster.json not written."
-    }
-
-    Start-Sleep -Seconds 10
-}
+# Also print to stdout for debugging
+$result | ConvertTo-Json -Depth 10
