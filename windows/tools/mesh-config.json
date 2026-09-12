@@ -1,5 +1,5 @@
 {
     "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
-    "ApiUrl": "http://192.168.1.241:8384",
+    "BaseUrl": "http://192.168.1.241:8384",
     "NodeRole": "MASTERZERO"
 }

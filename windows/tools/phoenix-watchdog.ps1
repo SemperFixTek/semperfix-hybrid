@@ -1,75 +1,125 @@
 <#
-    phoenix-watchdog.ps1 (Unified Config Edition)
-    Validates system integrity + Syncthing health.
-    Escalates MASTERZERO → DEGRADED when required.
+ Phoenix v2 Watchdog
+ Node-local writer
+ Runs on MASTERZERO, SECONDARY, OFFSITE
+ Writes ONLY phoenix.<node>.json
+ Never writes phoenix.cluster.json
 #>
 
-param(
-    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
-    [string]$LogPath = "C:\SemperFix\Logs\phoenix-watchdog.log"
-)
+Set-Location "C:\SemperFix\Tools"
 
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[$ts] [$Level] $Message"
-    $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
-    Write-Host $line
+# Determine which node-local file to load based on NodeRole inside the file
+$PhoenixRoot = "C:\SemperFix\ConfigBackup"
+$LocalFiles = @{
+    "MASTERZERO" = "$PhoenixRoot\phoenix.masterzero.json"
+    "SECONDARY"  = "$PhoenixRoot\phoenix.secondary.json"
+    "OFFSITE"    = "$PhoenixRoot\phoenix.offsite.json"
 }
 
-# Load phoenix.json
-if (-not (Test-Path $PhoenixPath)) {
-    Write-Log "phoenix.json missing at $PhoenixPath" "ERROR"
-    exit 1
-}
+while ($true) {
 
-$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
-Write-Log "Loaded phoenix.json successfully."
-
-# Load syncthing health function
-. "C:\SemperFix\Tools\phoenix-syncthing-health.ps1"
-
-# Evaluate Syncthing health
-$health = phoenix-syncthing-health -PhoenixPathInner $PhoenixPath
-
-if (-not $health.Healthy) {
-    Write-Log "Watchdog: Syncthing health degraded: $($health.Reason)" "WARN"
-
-    # Escalate MASTERZERO → DEGRADED
-    Write-Log "Watchdog: Escalating MASTERZERO → DEGRADED."
-    powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason $health.Reason
-
-    exit 0
-}
-
-Write-Log "Syncthing health OK."
-
-# Validate required paths/files/modules/folders
-$wd = $phoenix.Watchdog
-
-foreach ($path in $wd.RequiredPaths.GetEnumerator()) {
-    if (-not (Test-Path $path.Value)) {
-        Write-Log "Missing required path: $($path.Value)" "ERROR"
-        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required path: $($path.Value)"
-        exit 0
+    # Load node-local phoenix file
+    $localPhoenix = $null
+    foreach ($file in $LocalFiles.Values) {
+        if (Test-Path $file) {
+            $candidate = Get-Content $file -Raw | ConvertFrom-Json
+            if ($candidate.NodeRole -and $LocalFiles.ContainsKey($candidate.NodeRole)) {
+                $localPhoenix = $candidate
+                $PhoenixPath = $file
+                break
+            }
+        }
     }
-}
 
-foreach ($file in $wd.RequiredFiles) {
-    if (-not (Test-Path $file)) {
-        Write-Log "Missing required file: $file" "ERROR"
-        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required file: $file"
-        exit 0
+    if (-not $localPhoenix) {
+        Write-Warning "[WATCHDOG] No valid node-local phoenix file found."
+        Start-Sleep -Seconds 5
+        continue
     }
-}
 
-foreach ($folder in $wd.RequiredFolders) {
-    if (-not (Test-Path $folder)) {
-        Write-Log "Missing required folder: $folder" "ERROR"
-        powershell -File "C:\SemperFix\Tools\phoenix-escalate.ps1" -Reason "Missing required folder: $folder"
-        exit 0
+    $nodeRole = $localPhoenix.NodeRole
+    $nodes    = $localPhoenix.Nodes
+
+    # Identify THIS node's entry in Nodes[]
+    $nodeEntry = $nodes | Where-Object { $_.Name -eq $nodeRole }
+
+    if (-not $nodeEntry) {
+        Write-Warning "[WATCHDOG] No Nodes[] entry found for $nodeRole."
+        Start-Sleep -Seconds 5
+        continue
     }
-}
 
-Write-Log "Watchdog: All checks passed. No escalation required."
-exit 0
+    # Build Syncthing API endpoint
+    $apiUrl = $nodeEntry.ApiUrl
+    $pingUrl = "$apiUrl/rest/system/ping"
+
+    # ------------------------------------------------------------
+    # SYNCTHING HEALTH CHECK
+    # ------------------------------------------------------------
+    try {
+        $pong = Invoke-RestMethod -Uri $pingUrl -TimeoutSec 3
+        $healthy = ($pong -eq "pong")
+        $reason = $null
+    }
+    catch {
+        $healthy = $false
+        $reason = $_.Exception.Message
+    }
+
+    # Update node-local Syncthing health
+    $localPhoenix.Syncthing.Healthy = $healthy
+    $localPhoenix.Syncthing.Reason  = $reason
+    $localPhoenix.Phoenix.Timestamp = (Get-Date).ToString("o")
+
+    Write-Host "[WATCHDOG] Node=$nodeRole Healthy=$healthy Reason=$reason"
+
+    # ------------------------------------------------------------
+    # NODE-LOCAL ROLE LOGIC
+    # ------------------------------------------------------------
+
+    switch ($nodeRole) {
+
+        "MASTERZERO" {
+            if ($healthy) {
+                # MASTERZERO must always reclaim ACTIVE when healthy
+                $localPhoenix.Status.Role  = "MASTERZERO-ACTIVE"
+                $localPhoenix.Status.State = "HEALTHY"
+                $localPhoenix.Status.Message = "MASTERZERO healthy; ACTIVE role enforced."
+                $localPhoenix.Phoenix.Lineage = "MASTERZERO"
+            }
+            else {
+                $localPhoenix.Status.State = "DEGRADED"
+                $localPhoenix.Status.Message = "MASTERZERO unhealthy; DEGRADED."
+            }
+        }
+
+        "SECONDARY" {
+            if ($healthy -and $localPhoenix.Phoenix.Lineage -eq "MASTERZERO") {
+                # MASTERZERO healthy → SECONDARY must be PASSIVE
+                $localPhoenix.Status.Role  = "SECONDARY-PASSIVE"
+                $localPhoenix.Status.State = "HEALTHY"
+                $localPhoenix.Status.Message = "SECONDARY healthy; MASTERZERO lineage; PASSIVE."
+            }
+            elseif (-not $healthy) {
+                # SECONDARY unhealthy → DEGRADED
+                $localPhoenix.Status.State = "DEGRADED"
+                $localPhoenix.Status.Message = "SECONDARY unhealthy; DEGRADED."
+            }
+        }
+
+        "OFFSITE" {
+            # OFFSITE never promotes or demotes
+            $localPhoenix.Status.Role  = "OFFSITE-PASSIVE"
+            $localPhoenix.Status.State = $healthy ? "HEALTHY" : "DEGRADED"
+            $localPhoenix.Status.Message = "OFFSITE observer mode."
+        }
+    }
+
+    # ------------------------------------------------------------
+    # WRITE NODE-LOCAL FILE
+    # ------------------------------------------------------------
+    $localPhoenix.Status.Timestamp = (Get-Date).ToString("o")
+    $localPhoenix | ConvertTo-Json -Depth 8 | Set-Content $PhoenixPath -Encoding UTF8
+
+    Start-Sleep -Seconds 5
+}

@@ -3,11 +3,11 @@ Param(
 )
 
 # Load config
-$configPath = "C:\SemperFix\semperfix-config.json"
+$configPath = "C:\SemperFix\tools\semperfix-config.json"
 $config     = Get-Content $configPath -Raw | ConvertFrom-Json
 
 $apiKey  = $config.ApiKey
-$baseUrl = $config.BaseUrl
+$ApiUrl = $config.ApiUrl
 
 
 # Logging setup
@@ -47,7 +47,7 @@ $client  = New-Object System.Net.Http.HttpClient($handler)
 # --------------------------------------------------------------------
 # SYNCTHING PING (HTTPS + API KEY)
 # --------------------------------------------------------------------
-$pingUrl = "$baseUrl/rest/system/ping"
+$pingUrl = "$ApiUrl/rest/system/ping"
 
 try {
     Write-Log "Pinging Syncthing API at $pingUrl (TimeoutSec=$TimeoutSec)"

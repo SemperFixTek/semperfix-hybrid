@@ -1,62 +1,25 @@
-param(
-    [string]$ConfigPath = "/mnt/c/SemperFix/Tools/mesh-config.json"
-)
+# Phoenix v2 — Windows Mesh Verify
+$ErrorActionPreference = "Stop"
+
+$configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
+$config = Get-Content $configPath | ConvertFrom-Json
+
+$ApiUrl = $config.ApiUrl
+
+$ConfigOK = Test-Path "C:\SemperFix\ConfigBackup\syncthing-config.json"
+
+$ServiceOK = $false
+try {
+    Invoke-RestMethod "$ApiUrl/rest/system/status" | Out-Null
+    $ServiceOK = $true
+} catch {}
+
+$VerifyOK = $ConfigOK -and $ServiceOK
 
 $result = [ordered]@{
-    NodeRole  = $null
-    Timestamp = (Get-Date).ToString("o")
-    Folders   = @()
-    Healthy   = $false
-    Errors    = @()
+    VerifyOK  = $VerifyOK
+    ConfigOK  = $ConfigOK
+    ServiceOK = $ServiceOK
 }
 
-# Load config
-try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $ApiKey  = $config.ApiKey
-    $BaseUrl = $config.BaseUrl
-    $result.NodeRole = $config.NodeRole
-}
-catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Load API helper
-try {
-    . "/mnt/c/SemperFix/Tools/syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
-}
-catch {
-    $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Folder status
-try {
-    $folders = Invoke-SyncthingApi -Path "/rest/db/status"
-
-    if ($folders -is [System.Collections.IDictionary]) {
-        foreach ($pair in $folders.GetEnumerator()) {
-            $folder = $pair.Value
-            $result.Folders += [ordered]@{
-                FolderID    = $pair.Key
-                GlobalBytes = $folder.globalBytes
-                InSync      = ($folder.globalBytes -eq $folder.inSyncBytes)
-            }
-        }
-
-        $result.Healthy = -not ($result.Folders | Where-Object { -not $_.InSync })
-    }
-}
-catch {
-    if ($_.Exception.Message -like "*404*") {
-        # Golden Template empty state
-        $result.Folders = @()
-        $result.Healthy = $true
-    }
-    else {
-        $result.Errors += "Folder status API failed: $($_.Exception.Message)"
-    }
-}
-
-$result | ConvertTo-Json -Depth 6
+$result | ConvertTo-Json -Depth 10
