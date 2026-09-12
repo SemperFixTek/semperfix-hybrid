@@ -1,143 +1,100 @@
 <#
-    phoenix-supervisor.ps1 (Unified Config Edition)
-    Supervises Phoenix state using Syncthing + phoenix.json as single source of truth.
+    phoenix-supervisor.ps1
+    Drop‑in supervisor with explicit MASTERZERO recovery logic.
+
+    - Reads phoenix.json
+    - Logs current view
+    - Decides role changes
+    - Writes phoenix.json atomically
 #>
 
 param(
-    [int]$IntervalSeconds = 30,
     [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
-    [string]$LockPath = "C:\SemperFix\ConfigBackup\phoenix-supervisor.lock",
-    [string]$LogPath = "C:\SemperFix\Logs\phoenix-supervisor.log",
-    [ValidateSet("auto","manual")] [string]$Mode = "auto",
-    [int]$MaxBackoffSeconds = 300
+    [string]$LogPath     = "C:\SemperFix\Logs\supervisor.log"
 )
 
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
+function Write-SupervisorLog {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "[$ts] [$Level] $Message"
-    $line | Out-File -FilePath $LogPath -Append -Encoding UTF8
-    Write-Host $line
+    $line = "[{0}] [{1}] {2}" -f $ts, $Level, $Message
+    Add-Content -Path $LogPath -Value $line -Encoding UTF8
 }
 
-function Acquire-Lock {
-    param([string]$Path)
-    try {
-        $content = @{ pid = $PID; ts = (Get-Date).ToString("o") } | ConvertTo-Json
-        Set-Content -Path $Path -Value $content -NoNewline -Encoding UTF8 -ErrorAction Stop
-        return $true
-    } catch { return $false }
+function Write-PhoenixJson {
+    param(
+        [object]$Phoenix,
+        [string]$Path
+    )
+
+    $tmp = "$Path.tmp"
+    $Phoenix | ConvertTo-Json -Depth 12 | Set-Content -Path $tmp -Encoding UTF8
+    Move-Item -Path $tmp -Destination $Path -Force
 }
 
-function Release-Lock {
-    param([string]$Path)
-    if (Test-Path $Path) { Remove-Item $Path -Force -ErrorAction SilentlyContinue }
-}
+function Invoke-PhoenixSupervisor {
+    param(
+        [string]$PhoenixPathInner = $PhoenixPath
+    )
 
-function Invoke-Script {
-    param([string]$ScriptPath, [string[]]$Args)
-    $proc = Start-Process -FilePath "powershell" -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-File",$ScriptPath,$Args -Wait -PassThru -ErrorAction SilentlyContinue
-    if ($proc) { return $proc.ExitCode } else { return 1 }
-}
-
-# Syncthing health
-. "C:\SemperFix\Tools\phoenix-syncthing-health.ps1"
-
-Write-Log "Phoenix supervisor starting in $Mode mode. Interval ${IntervalSeconds}s."
-
-$backoff = 1
-while ($true) {
-    if (-not (Acquire-Lock -Path $LockPath)) {
-        Write-Log "Lock exists. Another supervisor may be running. Sleeping $IntervalSeconds seconds." "WARN"
-        Start-Sleep -Seconds $IntervalSeconds
-        continue
+    if (-not (Test-Path $PhoenixPathInner)) {
+        Write-SupervisorLog -Message "phoenix.json missing at $PhoenixPathInner" -Level "ERROR"
+        return
     }
 
-    try {
-        # 1. Syncthing health
-        $health = phoenix-syncthing-health
-        if (-not $health.Healthy) {
-            Write-Log "Syncthing health degraded: $($health.Reason)" "WARN"
-        }
+    $phoenix = Get-Content -Raw -Path $PhoenixPathInner | ConvertFrom-Json
 
-        # 2. Load phoenix.json
-        if (-not (Test-Path $PhoenixPath)) {
-            Write-Log "phoenix.json missing at $PhoenixPath" "ERROR"
-            Release-Lock -Path $LockPath
-            Start-Sleep -Seconds ([math]::Min($backoff, $MaxBackoffSeconds))
-            $backoff = [math]::Min($backoff * 2, $MaxBackoffSeconds)
-            continue
-        }
+    $nodeRole    = $phoenix.NodeRole
+    $statusRole  = $phoenix.Status.Role
+    $statusState = $phoenix.Status.State
+    $synHealthy  = $phoenix.Syncthing.Healthy
 
-        $phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+    Write-SupervisorLog -Message ("Supervisor view: NodeRole={0} StatusRole={1} State={2}" -f $nodeRole, $statusRole, $statusState)
 
-        $nodeRole   = $phoenix.NodeRole
-        $statusRole = $phoenix.Status.Role
-        $state      = $phoenix.Status.State
+    # --- MASTERZERO RECOVERY BRANCH ---
+    # MASTERZERO is healthy but stuck in SECONDARY-ACTIVE/DEGRADED → reclaim control.
+    if ($nodeRole -eq 'MASTERZERO' -and
+        $statusRole -eq 'SECONDARY-ACTIVE' -and
+        $synHealthy -eq $true)
+    {
+        Write-SupervisorLog -Message "Recovery: MASTERZERO is healthy but marked SECONDARY-ACTIVE. Reclaiming control."
 
-        Write-Log "Supervisor view: NodeRole=$nodeRole StatusRole=$statusRole State=$state"
+        $phoenix.Status.Role       = 'MASTERZERO-ACTIVE'
+        $phoenix.Status.State      = 'HEALTHY'
+        $phoenix.Status.Message    = 'Recovery: MASTERZERO reclaimed primary role.'
+        $phoenix.Status.Timestamp  = (Get-Date).ToString('o')
+        $phoenix.Phoenix.Lineage   = 'MASTERZERO'
 
-        $shouldPromote = $false
-        $shouldDemote  = $false
-        $shouldRecover = $false
-
-        # SECONDARY failover
-        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-PASSIVE" -and $state -eq "FAILOVER_ALLOWED" -and $health.Healthy) {
-            $shouldPromote = $true
-        }
-
-        # SECONDARY recovery (demote self when MASTERZERO recovered)
-        if ($nodeRole -eq "SECONDARY" -and $statusRole -eq "SECONDARY-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
-            $shouldDemote = $true
-        }
-
-        # MASTERZERO degraded → hand off / stay out of control
-        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "DEGRADED" -and $health.Healthy) {
-            # No direct action here; watchdog + promote handle failover.
-            Write-Log "MASTERZERO marked DEGRADED; waiting for failover/recovery logic."
-        }
-
-        # MASTERZERO recovery → reclaim control
-        if ($nodeRole -eq "MASTERZERO" -and $statusRole -eq "MASTERZERO-ACTIVE" -and $state -eq "RECOVER" -and $health.Healthy) {
-            $shouldRecover = $true
-        }
-
-        if ($shouldPromote) {
-            Write-Log "Decision: promote this node to SECONDARY-ACTIVE."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-promote.ps1" -Args @()
-                Write-Log "Promotion exit code: $rc"
-            } else {
-                Write-Log "Manual mode: promotion not executed."
-            }
-        } elseif ($shouldRecover) {
-            Write-Log "Decision: recover MASTERZERO (reclaim control)."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-recover.ps1" -Args @()
-                Write-Log "Recovery exit code: $rc"
-            } else {
-                Write-Log "Manual mode: recovery not executed."
-            }
-        } elseif ($shouldDemote) {
-            Write-Log "Decision: demote this SECONDARY from ACTIVE to PASSIVE."
-            if ($Mode -eq "auto") {
-                $rc = Invoke-Script -ScriptPath "C:\SemperFix\Tools\phoenix-demote.ps1" -Args @()
-                Write-Log "Demotion exit code: $rc"
-            } else {
-                Write-Log "Manual mode: demotion not executed."
-            }
-        } else {
-            Write-Log "No role change required."
-        }
-
-        $backoff = 1
-    }
-    catch {
-        Write-Log "Supervisor loop exception: $($_.Exception.Message)" "ERROR"
-    }
-    finally {
-        Release-Lock -Path $LockPath
+        Write-PhoenixJson -Phoenix $phoenix -Path $PhoenixPathInner
+        Write-SupervisorLog -Message "Recovery write completed. Role=MASTERZERO-ACTIVE State=HEALTHY."
+        return
     }
 
-    Start-Sleep -Seconds $IntervalSeconds
+    # --- SECONDARY PROMOTION (example, keep your existing logic here) ---
+    # If SECONDARY node, healthy, and currently PASSIVE, you might promote:
+    if ($nodeRole -eq 'SECONDARY' -and
+        $statusRole -eq 'SECONDARY-PASSIVE' -and
+        $synHealthy -eq $true)
+    {
+        Write-SupervisorLog -Message "Promotion: SECONDARY is healthy and PASSIVE. Promoting to SECONDARY-ACTIVE."
+
+        $phoenix.Status.Role       = 'SECONDARY-ACTIVE'
+        $phoenix.Status.State      = 'HEALTHY'
+        $phoenix.Status.Message    = 'Promotion: SECONDARY became active.'
+        $phoenix.Status.Timestamp  = (Get-Date).ToString('o')
+        $phoenix.Phoenix.Lineage   = 'SECONDARY'
+
+        Write-PhoenixJson -Phoenix $phoenix -Path $PhoenixPathInner
+        Write-SupervisorLog -Message "Promotion write completed. Role=SECONDARY-ACTIVE State=HEALTHY."
+        return
+    }
+
+    # --- DEFAULT: no change ---
+    Write-SupervisorLog -Message "No role change required."
 }
+
+# direct run
+Invoke-PhoenixSupervisor -PhoenixPathInner $PhoenixPath
