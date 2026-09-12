@@ -1,32 +1,25 @@
-# Phoenix v2 — Windows Mesh Activation
+# Phoenix v2 — Windows Mesh Activate
 $ErrorActionPreference = "Stop"
 
 $configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
 $config = Get-Content $configPath | ConvertFrom-Json
 
-$NodeRole = $config.NodeRole
-$ApiUrl   = $config.ApiUrl
+$ApiUrl = $config.ApiUrl
+$ApiKey = $config.ApiKey
 
-$bootstrap = powershell -File "C:\SemperFix\Tools\mesh-bootstrap.ps1" | ConvertFrom-Json
-$status    = powershell -File "C:\SemperFix\Tools\mesh-status.ps1"    | ConvertFrom-Json
-$verify    = powershell -File "C:\SemperFix\Tools\mesh-verify.ps1"    | ConvertFrom-Json
+$Headers = @{ "X-API-Key" = "$ApiKey" }
 
-$ActivationOK =
-    $bootstrap.BootstrapOK -and
-    $status.Status.IdentityOK -and
-    $status.Status.EndpointOK -and
-    $verify.VerifyOK
+$ActivationOK = $false
+
+try {
+    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
+    if ($status.myID) { $ActivationOK = $true }
+} catch {}
 
 $result = [ordered]@{
-    NodeRole   = $NodeRole
-    ApiUrl     = $ApiUrl
-    Activation = @{
-        Bootstrap    = $bootstrap
-        Status       = $status
-        Verify       = $verify
-        ActivationOK = $ActivationOK
-        Timestamp    = (Get-Date).ToString("o")
-    }
+    ActivationOK = $ActivationOK
+    ApiUrl       = $ApiUrl
+    Timestamp    = (Get-Date).ToString("o")
 }
 
 $result | ConvertTo-Json -Depth 10

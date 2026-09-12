@@ -1,74 +1,33 @@
 # Phoenix v2 — Windows Supervisor
-# Monitors Syncthing API, Mesh health, and activation status.
-# Writes supervisor-status.json for WSL + Windows coordination.
-
 $ErrorActionPreference = "Stop"
 
-# Paths
-$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
-$ConfigPath  = "C:\SemperFix\ConfigBackup\syncthing-config.json"
-$StatusPath  = "C:\SemperFix\ConfigBackup\supervisor-status.json"
+$configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
+$config = Get-Content $configPath | ConvertFrom-Json
 
-# Load Phoenix config
-$phoenix = Get-Content $PhoenixPath | ConvertFrom-Json
-$NodeRole = $phoenix.NodeRole
-$ApiUrl   = $phoenix.ApiUrl
+$ApiUrl = $config.ApiUrl
+$ApiKey = $config.ApiKey
 
-# Load Syncthing API key
-$config = Get-Content $ConfigPath | ConvertFrom-Json
-$ApiKey = $config.gui.apikey
+$Headers = @{ "X-API-Key" = "$ApiKey" }
 
-# Prepare headers
-$Headers = @{ "X-API-Key" = $ApiKey }
+$ApiOK = $false
+$StatusOK = $false
 
-# Supervisor fields
-$ApiOK       = $false
-$StatusOK    = $false
-$MeshOK      = $false
-$ActivationOK = $false
-
-# Check API ping
 try {
-    $pong = Invoke-RestMethod -Uri "$ApiUrl/rest/system/ping" -Headers $Headers -Method Get
-    if ($pong -eq "pong") { $ApiOK = $true }
+    $pong = Invoke-RestMethod "$ApiUrl/rest/system/ping" -Headers $Headers
+    if ($pong.ping -eq "pong") { $ApiOK = $true }
 } catch {}
 
-# Check system status
 try {
-    Invoke-RestMethod -Uri "$ApiUrl/rest/system/status" -Headers $Headers -Method Get | Out-Null
-    $StatusOK = $true
+    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
+    if ($status.myID) { $StatusOK = $true }
 } catch {}
 
-# Mesh health (LAN ping)
-try {
-    $LanIP = ($ApiUrl.Split("/")[2].Split(":")[0])
-    $MeshOK = Test-Connection -ComputerName $LanIP -Count 1 -Quiet
-} catch {}
-
-# Activation status (read last activation result)
-$ActivationFile = "C:\SemperFix\ConfigBackup\activation-status.json"
-if (Test-Path $ActivationFile) {
-    try {
-        $activation = Get-Content $ActivationFile | ConvertFrom-Json
-        $ActivationOK = $activation.Activation.ActivationOK
-    } catch {}
-}
-
-# Build supervisor JSON
 $result = [ordered]@{
-    NodeRole      = $NodeRole
-    ApiUrl        = $ApiUrl
-    Supervisor    = @{
-        ApiOK        = $ApiOK
-        StatusOK     = $StatusOK
-        MeshOK       = $MeshOK
-        ActivationOK = $ActivationOK
-        Timestamp    = (Get-Date).ToString("o")
-    }
+    SupervisorOK = ($ApiOK -and $StatusOK)
+    ApiOK        = $ApiOK
+    StatusOK     = $StatusOK
+    ApiUrl       = $ApiUrl
+    Timestamp    = (Get-Date).ToString("o")
 }
 
-# Write to file
-$result | ConvertTo-Json -Depth 10 | Set-Content $StatusPath
-
-# Also print to stdout for debugging
 $result | ConvertTo-Json -Depth 10

@@ -1,28 +1,19 @@
 #!/bin/bash
-set -euo pipefail
 
-PHOENIX_FILE="/mnt/c/SemperFix/ConfigBackup/phoenix.json"
-API_URL=$(jq -r '.ApiUrl' "$PHOENIX_FILE")
+CONFIG="/mnt/c/SemperFix/ConfigBackup/phoenix.json"
 
-CONFIG_FILE="/mnt/c/SemperFix/ConfigBackup/syncthing-config.json"
-API_KEY=$(jq -r '.gui.apikey' "$CONFIG_FILE")
-
-SERVICE_OK=false
-if curl -s -H "X-API-Key: $API_KEY" "$API_URL/rest/system/status" >/dev/null; then
-    SERVICE_OK=true
+if [ ! -f "$CONFIG" ]; then
+    echo '{"VerifyOK":false,"Reason":"Missing phoenix.json"}'
+    exit 1
 fi
 
+API_URL=$(jq -r '.ApiUrl' "$CONFIG")
+API_KEY=$(jq -r '.ApiKey' "$CONFIG")
 
-if $CONFIG_OK && $SERVICE_OK; then
-    VERIFY_OK=true
+STATUS=$(curl -s -H "X-API-Key: $API_KEY" "$API_URL/rest/system/status")
+
+if echo "$STATUS" | jq -e '.myID!=null' >/dev/null; then
+    echo "{\"VerifyOK\":true,\"ApiUrl\":\"$API_URL\"}"
+else
+    echo "{\"VerifyOK\":false,\"ApiUrl\":\"$API_URL\"}"
 fi
-
-jq -n \
-  --argjson ConfigOK "$CONFIG_OK" \
-  --argjson ServiceOK "$SERVICE_OK" \
-  --argjson VerifyOK "$VERIFY_OK" \
-  '{
-    VerifyOK: $VerifyOK,
-    ConfigOK: $ConfigOK,
-    ServiceOK: $ServiceOK
-  }'
