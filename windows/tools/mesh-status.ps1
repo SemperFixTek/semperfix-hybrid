@@ -5,30 +5,28 @@ $configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
 $config = Get-Content $configPath | ConvertFrom-Json
 
 $ApiUrl = $config.ApiUrl
+$ApiKey = $config.ApiKey
 
-# Identity
-$IdentityOK = $true
-$Hostname = $env:COMPUTERNAME
+$Headers = @{ "X-API-Key" = "$ApiKey" }
 
-# Endpoint (QUIC)
-$EndpointOK = $false
+$ApiOK = $false
+$StatusOK = $false
+
 try {
-    $client = New-Object System.Net.Sockets.TcpClient
-    $client.Connect("10.10.10.2", 22000)
-    $EndpointOK = $true
-    $client.Close()
+    $pong = Invoke-RestMethod "$ApiUrl/rest/system/ping" -Headers $Headers
+    if ($pong.ping -eq "pong") { $ApiOK = $true }
 } catch {}
 
-# Mesh health (LAN ping)
-$MeshOK = Test-Connection -ComputerName ($ApiUrl.Split("/")[2].Split(":")[0]) -Count 1 -Quiet
+try {
+    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
+    if ($status.myID) { $StatusOK = $true }
+} catch {}
 
 $result = [ordered]@{
-    Status = @{
-        Hostname    = $Hostname
-        IdentityOK  = $IdentityOK
-        EndpointOK  = $EndpointOK
-        MeshOK      = $MeshOK
-    }
+    StatusOK  = $StatusOK
+    ApiOK     = $ApiOK
+    ApiUrl    = $ApiUrl
+    Timestamp = (Get-Date).ToString("o")
 }
 
 $result | ConvertTo-Json -Depth 10
