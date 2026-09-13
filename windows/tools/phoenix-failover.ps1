@@ -1,26 +1,28 @@
 # Phoenix v2 — Failover Decision Engine
 $ErrorActionPreference = "Stop"
 
-$StatusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-$HeartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
-$FailoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
+$statusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$heartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
+$failoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
 
-$StatusOK = $false
+$StatusOK    = $false
 $HeartbeatOK = $false
 
-# Validate status
-if (Test-Path $StatusPath) {
+# Status check
+if (Test-Path $statusPath) {
     try {
-        $status = Get-Content $StatusPath | ConvertFrom-Json
-        $StatusOK = $status.Status.ApiOK -and $status.Status.StatusOK
+        $status = Get-Content $statusPath | ConvertFrom-Json
+        if ($status.ApiOK -and $status.StatusOK) {
+            $StatusOK = $true
+        }
     } catch {}
 }
 
-# Validate heartbeat (must be < 2 minutes old)
-if (Test-Path $HeartbeatPath) {
+# Heartbeat check (< 2 minutes old)
+if (Test-Path $heartbeatPath) {
     try {
-        $heartbeat = Get-Content $HeartbeatPath | ConvertFrom-Json
-        $ts = [DateTime]::Parse($heartbeat.Timestamp)
+        $hb = Get-Content $heartbeatPath | ConvertFrom-Json
+        $ts = [DateTime]::Parse($hb.Timestamp)
         if ((Get-Date) - $ts -lt [TimeSpan]::FromMinutes(2)) {
             $HeartbeatOK = $true
         }
@@ -36,5 +38,5 @@ $result = [ordered]@{
     Timestamp        = (Get-Date).ToString("o")
 }
 
-$result | ConvertTo-Json -Depth 10 | Set-Content $FailoverPath
+$result | ConvertTo-Json -Depth 10 | Set-Content $failoverPath
 $result | ConvertTo-Json -Depth 10

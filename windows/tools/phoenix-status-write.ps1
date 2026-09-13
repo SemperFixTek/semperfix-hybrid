@@ -1,41 +1,35 @@
 # Phoenix v2 — Status Writer
 $ErrorActionPreference = "Stop"
 
-$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
-$ConfigPath  = "C:\SemperFix\ConfigBackup\syncthing-config.json"
-$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$configPath  = "C:\SemperFix\ConfigBackup\phoenix.json"
+$statusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
 
-$phoenix = Get-Content $PhoenixPath | ConvertFrom-Json
-$NodeRole = $phoenix.NodeRole
-$ApiUrl   = $phoenix.ApiUrl
+$config = Get-Content $configPath | ConvertFrom-Json
 
-$config = Get-Content $ConfigPath | ConvertFrom-Json
-$ApiKey = $config.gui.apikey
+$ApiUrl = $config.ApiUrl
+$ApiKey = $config.ApiKey
 
 $Headers = @{ "X-API-Key" = $ApiKey }
 
-$ApiOK = $false
+$ApiOK    = $false
 $StatusOK = $false
 
 try {
     $pong = Invoke-RestMethod "$ApiUrl/rest/system/ping" -Headers $Headers
-    if ($pong -eq "pong") { $ApiOK = $true }
+    if ($pong.ping -eq "pong") { $ApiOK = $true }
 } catch {}
 
 try {
-    Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers | Out-Null
-    $StatusOK = $true
+    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
+    if ($status.myID) { $StatusOK = $true }
 } catch {}
 
 $result = [ordered]@{
-    NodeRole = $NodeRole
-    ApiUrl   = $ApiUrl
-    Status   = @{
-        ApiOK     = $ApiOK
-        StatusOK  = $StatusOK
-        Timestamp = (Get-Date).ToString("o")
-    }
+    ApiOK     = $ApiOK
+    StatusOK  = $StatusOK
+    ApiUrl    = $ApiUrl
+    Timestamp = (Get-Date).ToString("o")
 }
 
-$result | ConvertTo-Json -Depth 10 | Set-Content $StatusPath
+$result | ConvertTo-Json -Depth 10 | Set-Content $statusPath
 $result | ConvertTo-Json -Depth 10

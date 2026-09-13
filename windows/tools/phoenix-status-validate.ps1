@@ -1,29 +1,27 @@
 # Phoenix v2 — Status Validator
 $ErrorActionPreference = "Stop"
 
-$StatusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$statusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json"
 
-if (-not (Test-Path $StatusPath)) {
-    Write-Output '{"Valid":false,"Reason":"Status file missing"}'
+if (-not (Test-Path $statusPath)) {
+    Write-Output '{"Valid":false,"Reason":"Missing phoenix-status.json"}'
     exit
 }
 
 try {
-    $status = Get-Content $StatusPath | ConvertFrom-Json
+    $status = Get-Content $statusPath | ConvertFrom-Json
 } catch {
-    Write-Output '{"Valid":false,"Reason":"Status file unreadable"}'
+    Write-Output '{"Valid":false,"Reason":"Unreadable or invalid JSON"}'
     exit
 }
 
-$ApiOK    = $status.Status.ApiOK
-$StatusOK = $status.Status.StatusOK
-
-$Valid = $ApiOK -and $StatusOK
+$Valid = ($status.ApiOK -and $status.StatusOK)
 
 $result = [ordered]@{
     Valid     = $Valid
-    ApiOK     = $ApiOK
-    StatusOK  = $StatusOK
+    ApiOK     = $status.ApiOK
+    StatusOK  = $status.StatusOK
+    ApiUrl    = $status.ApiUrl
     Timestamp = (Get-Date).ToString("o")
 }
 
