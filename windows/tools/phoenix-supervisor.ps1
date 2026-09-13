@@ -1,6 +1,5 @@
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
+
+
 <#
     phoenix-supervisor.ps1
     Drop‑in supervisor with explicit MASTERZERO recovery logic.
@@ -101,8 +100,7 @@ function Invoke-PhoenixSupervisor {
 
 # direct run
 Invoke-PhoenixSupervisor -PhoenixPathInner $PhoenixPath
-=======
->>>>>>> f421cc4430b14bddcd9923ad4fd6c0755ddc7b40
+
 # Phoenix v2 — Windows Supervisor
 $ErrorActionPreference = "Stop"
 
@@ -136,4 +134,4 @@ $result = [ordered]@{
 }
 
 $result | ConvertTo-Json -Depth 10
->>>>>>> 9f05a1b271981a50456b118fd05def3dd96a74f5
+

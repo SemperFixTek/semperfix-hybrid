@@ -5,7 +5,6 @@
     SECONDARY becomes ACTIVE using Syncthing-synced local folders.
 #>
 
-<<<<<<< HEAD
 $statusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
 $heartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
 $failoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
@@ -32,7 +31,7 @@ if (Test-Path $heartbeatPath) {
             $HeartbeatOK = $true
         }
     } catch {}
-=======
+}
 # --- CONFIG ---
 $LogPath     = "C:\SemperFix\Logs\phoenix-failover.log"
 $StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
@@ -58,7 +57,7 @@ foreach ($folder in @($MasterZeroPath, $ConfigBackupPath, $AssetsPath)) {
         exit 1
     }
     Write-SFXLog "INFO" "Verified Syncthing folder: $folder"
->>>>>>> f421cc4430b14bddcd9923ad4fd6c0755ddc7b40
+
 }
 
 # --- VERIFY PHOENIX STATUS FILE ---
@@ -67,10 +66,8 @@ if (-not (Test-Path $StatusPath)) {
     exit 1
 }
 
-<<<<<<< HEAD
 $result | ConvertTo-Json -Depth 10 | Set-Content $failoverPath
 $result | ConvertTo-Json -Depth 10
-=======
 Write-SFXLog "INFO" "Phoenix status file found at '$StatusPath'. Parsing..."
 
 try {
@@ -117,4 +114,4 @@ Write-SFXLog "INFO" "Phoenix status updated for SECONDARY-ACTIVE."
 # --- COMPLETE ---
 Write-SFXLog "INFO" "Phoenix failover completed successfully using Syncthing transport."
 exit 0
->>>>>>> f421cc4430b14bddcd9923ad4fd6c0755ddc7b40
+
