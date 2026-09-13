@@ -1,0 +1,13 @@
+Instructions for deployment of Phoenix file folder:
+
+1. Folder "Phoenix" blongs in the root Semperfix directory,
+   As-in "C:\SemperFix\Phoenix. Check case for WSL compatibility!
+
+2.  Copy "phoenix.json" and "semperfix.json" from the repo into Phoenix.
+
+3. Edit both files to reflect which node, Syncthing API key and IP URL.
+
+4. Only on FIRST node in cluster: copy the other 3 files; "phoenix-failover,
+   phoenix-heartbeat, and phoenix-status".  These files live in
+   SemperFix\ConfigBackup.  This folder is maintained by Syncthing, Check
+   for these 3 files before copying them, they are log files for system.
