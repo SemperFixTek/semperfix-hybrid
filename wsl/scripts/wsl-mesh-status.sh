@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONFIG="/mnt/c/SemperFix/ConfigBackup/phoenix.json"
+CONFIG="/mnt/c/SemperFix/Phoenix/phoenix.json"
 
 API_URL=$(jq -r '.ApiUrl' "$CONFIG")
 API_KEY=$(jq -r '.ApiKey' "$CONFIG")

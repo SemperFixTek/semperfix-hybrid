@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONFIG="/mnt/c/SemperFix/ConfigBackup/phoenix.json"
+CONFIG="/mnt/c/SemperFix/Phoenix/phoenix.json"
 
 if [ ! -f "$CONFIG" ]; then
     echo '{"VerifyOK":false,"Reason":"Missing phoenix.json"}'

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-STATUS="/mnt/c/SemperFix/ConfigBackup/phoenix-status.json"
+CONFIG="/mnt/c/SemperFix/Phoenix/phoenix.json"
 HB="/mnt/c/SemperFix/ConfigBackup/phoenix-heartbeat.json"
 
 STATUS_OK=false
