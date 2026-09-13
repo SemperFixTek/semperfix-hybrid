@@ -1,40 +1,86 @@
-# Phoenix v2 — Failover Decision Engine
-$ErrorActionPreference = "Stop"
+<#
+    Phoenix Failover (Syncthing Transport)
+    SemperFix Logging Format
+    --------------------------------------
+    SECONDARY becomes ACTIVE using Syncthing-synced local folders.
+#>
 
-$StatusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-$HeartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
-$FailoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
+# --- CONFIG ---
+$LogPath     = "C:\SemperFix\Logs\phoenix-failover.log"
+$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$MasterZeroPath = "C:\SemperFix\MasterZero"
+$ConfigBackupPath = "C:\SemperFix\ConfigBackup"
+$AssetsPath = "C:\SemperFix\Assets"
 
-$StatusOK = $false
-$HeartbeatOK = $false
-
-# Validate status
-if (Test-Path $StatusPath) {
-    try {
-        $status = Get-Content $StatusPath | ConvertFrom-Json
-        $StatusOK = $status.Status.ApiOK -and $status.Status.StatusOK
-    } catch {}
+# --- LOGGING ---
+function Write-SFXLog {
+    param([string]$Level, [string]$Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
+    Write-Host $line
+    Add-Content -Path $LogPath -Value $line
 }
 
-# Validate heartbeat (must be < 2 minutes old)
-if (Test-Path $HeartbeatPath) {
-    try {
-        $heartbeat = Get-Content $HeartbeatPath | ConvertFrom-Json
-        $ts = [DateTime]::Parse($heartbeat.Timestamp)
-        if ((Get-Date) - $ts -lt [TimeSpan]::FromMinutes(2)) {
-            $HeartbeatOK = $true
-        }
-    } catch {}
+Write-SFXLog "INFO" "Phoenix failover starting (Syncthing transport, SMB-free)."
+
+# --- VERIFY SYNCTHING FOLDERS ---
+foreach ($folder in @($MasterZeroPath, $ConfigBackupPath, $AssetsPath)) {
+    if (-not (Test-Path $folder)) {
+        Write-SFXLog "ERROR" "Required Syncthing folder missing: $folder"
+        exit 1
+    }
+    Write-SFXLog "INFO" "Verified Syncthing folder: $folder"
 }
 
-$FailoverRequired = -not ($StatusOK -and $HeartbeatOK)
-
-$result = [ordered]@{
-    FailoverRequired = $FailoverRequired
-    StatusOK         = $StatusOK
-    HeartbeatOK      = $HeartbeatOK
-    Timestamp        = (Get-Date).ToString("o")
+# --- VERIFY PHOENIX STATUS FILE ---
+if (-not (Test-Path $StatusPath)) {
+    Write-SFXLog "ERROR" "Phoenix status file missing at '$StatusPath'. Cannot failover."
+    exit 1
 }
 
-$result | ConvertTo-Json -Depth 10 | Set-Content $FailoverPath
-$result | ConvertTo-Json -Depth 10
+Write-SFXLog "INFO" "Phoenix status file found at '$StatusPath'. Parsing..."
+
+try {
+    $statusJson = Get-Content -Path $StatusPath -Raw | ConvertFrom-Json
+    Write-SFXLog "INFO" "Phoenix status JSON parsed successfully."
+}
+catch {
+    Write-SFXLog "ERROR" "Phoenix status JSON parse error: $($_.Exception.Message)"
+    exit 1
+}
+
+# --- VALIDATE STATUS CONTENT ---
+if ($statusJson.Status -ne "DEGRADED" -and $statusJson.Status -ne "FAILOVER_ALLOWED") {
+    Write-SFXLog "WARN" "Phoenix status does not explicitly allow failover. Proceeding with caution."
+} else {
+    Write-SFXLog "INFO" "Phoenix status indicates failover is allowed."
+}
+
+# --- PROMOTE SECONDARY ---
+Write-SFXLog "INFO" "Promoting SECONDARY to ACTIVE Phoenix node."
+
+# Example: start Phoenix service (replace with your actual service name)
+try {
+    Start-Service -Name "PhoenixService"
+    Write-SFXLog "INFO" "Phoenix service started on SECONDARY."
+}
+catch {
+    Write-SFXLog "ERROR" "Failed to start Phoenix service: $($_.Exception.Message)"
+    exit 1
+}
+
+# --- UPDATE STATUS JSON LOCALLY ---
+$failoverRecord = @{
+    Role          = "SECONDARY-ACTIVE"
+    PreviousRole  = "SECONDARY-PASSIVE"
+    FailoverSource = "MASTERZERO"
+    Timestamp     = (Get-Date).ToString("o")
+}
+
+$failoverRecord | ConvertTo-Json -Depth 5 | Set-Content -Path $StatusPath
+
+Write-SFXLog "INFO" "Phoenix status updated for SECONDARY-ACTIVE."
+
+# --- COMPLETE ---
+Write-SFXLog "INFO" "Phoenix failover completed successfully using Syncthing transport."
+exit 0

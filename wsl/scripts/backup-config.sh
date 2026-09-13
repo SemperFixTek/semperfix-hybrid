@@ -14,7 +14,7 @@ set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 ST_CONFIG_DIR="${SYNCTHING_HOME:-$HOME/.config/syncthing}"
-SEMPERFIX_CONFIG_DIR="${SEMPERFIX_CONFIG_DIR:-$HOME/.semperfix}"
+SEMPERFIX_CONFIG_DIR="${SEMPERFIX_CONFIG_DIRa:-$HOME/.semperfix}"
 BACKUP_DEST="${SEMPERFIX_BACKUP_DEST:-$HOME/SemperFix/ConfigBackup}"
 RETAIN_DAYS="${SEMPERFIX_BACKUP_RETAIN_DAYS:-30}"
 LOG_FILE="${SEMPERFIX_LOG_DIR:-$HOME/.semperfix/logs}/backup-config.log"
