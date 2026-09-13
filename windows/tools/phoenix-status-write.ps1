@@ -1,41 +1,88 @@
-# Phoenix v2 — Status Writer
-$ErrorActionPreference = "Stop"
+<#
+    phoenix-status-write.ps1 (Unified Config Edition)
+    Writes Phoenix status/state into phoenix.jso
+$configPath  = "C:\SemperFix\ConfigBackup\phoenix.json"
+$statusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+#>
 
-$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json"
-$ConfigPath  = "C:\SemperFix\ConfigBackup\syncthing-config.json"
-$StatusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$config = Get-Content $configPath | ConvertFrom-Json
 
-$phoenix = Get-Content $PhoenixPath | ConvertFrom-Json
-$NodeRole = $phoenix.NodeRole
-$ApiUrl   = $phoenix.ApiUrl
-
-$config = Get-Content $ConfigPath | ConvertFrom-Json
-$ApiKey = $config.gui.apikey
+$ApiUrl = $config.ApiUrl
+$ApiKey = $config.ApiKey
 
 $Headers = @{ "X-API-Key" = $ApiKey }
 
-$ApiOK = $false
+$ApiOK    = $false
 $StatusOK = $false
 
 try {
     $pong = Invoke-RestMethod "$ApiUrl/rest/system/ping" -Headers $Headers
-    if ($pong -eq "pong") { $ApiOK = $true }
+    if ($pong.ping -eq "pong") { $ApiOK = $true }
 } catch {}
 
 try {
-    Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers | Out-Null
-    $StatusOK = $true
+    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
+    if ($status.myID) { $StatusOK = $true }
 } catch {}
 
 $result = [ordered]@{
-    NodeRole = $NodeRole
-    ApiUrl   = $ApiUrl
-    Status   = @{
-        ApiOK     = $ApiOK
-        StatusOK  = $StatusOK
-        Timestamp = (Get-Date).ToString("o")
-    }
+    ApiOK     = $ApiOK
+    StatusOK  = $StatusOK
+    ApiUrl    = $ApiUrl
+    Timestamp = (Get-Date).ToString("o")
 }
 
-$result | ConvertTo-Json -Depth 10 | Set-Content $StatusPath
+$result | ConvertTo-Json -Depth 10 | Set-Content $statusPath
 $result | ConvertTo-Json -Depth 10
+=======
+param(
+    [string]$PhoenixPath = "C:\SemperFix\ConfigBackup\phoenix.json",
+    [string]$Role,
+    [string]$State,
+    [string]$Lineage,
+    [hashtable]$SyncthingHealth,
+    [hashtable]$PhoenixHealth,
+    [hashtable]$Actions,
+    [string]$EscalationReason = $null,
+    [string]$Message = "Phoenix status updated."
+)
+
+if (-not (Test-Path $PhoenixPath)) {
+    Write-Host "ERROR: phoenix.json missing at $PhoenixPath"
+    exit 1
+}
+
+$phoenix = Get-Content -Raw -Path $PhoenixPath | ConvertFrom-Json
+$now = Get-Date
+
+# Update core Phoenix block
+if (-not $phoenix.Phoenix) {
+    $phoenix | Add-Member -MemberType NoteProperty -Name Phoenix -Value (@{})
+}
+
+$phoenix.Phoenix.Version    = $phoenix.Phoenix.Version
+$phoenix.Phoenix.LastUpdate = $now.ToString("o")
+$phoenix.Phoenix.Lineage    = $Lineage
+
+# Update status block
+if (-not $phoenix.Status) {
+    $phoenix | Add-Member -MemberType NoteProperty -Name Status -Value (@{})
+}
+
+$phoenix.Status.Role             = $Role
+$phoenix.Status.State            = $State
+$phoenix.Status.EscalationReason = $EscalationReason
+$phoenix.Status.Timestamp        = $now.ToString("o")
+$phoenix.Status.Message          = $Message
+
+# Attach health + actions
+$phoenix.Syncthing = $SyncthingHealth
+$phoenix.Health    = $PhoenixHealth
+$phoenix.Actions   = $Actions
+
+# Persist
+$phoenix | ConvertTo-Json -Depth 8 | Set-Content -Path $PhoenixPath -Encoding UTF8
+
+Write-Host "phoenix.json status write OK."
+exit 0
+
