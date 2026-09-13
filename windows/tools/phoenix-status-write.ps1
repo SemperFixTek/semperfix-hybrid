@@ -1,11 +1,9 @@
 <#
     phoenix-status-write.ps1 (Unified Config Edition)
-    Writes Phoenix status/state into phoenix.json.
-#>
-
-<<<<<<< HEAD
+    Writes Phoenix status/state into phoenix.jso
 $configPath  = "C:\SemperFix\ConfigBackup\phoenix.json"
 $statusPath  = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+#>
 
 $config = Get-Content $configPath | ConvertFrom-Json
 
@@ -87,4 +85,4 @@ $phoenix | ConvertTo-Json -Depth 8 | Set-Content -Path $PhoenixPath -Encoding UT
 
 Write-Host "phoenix.json status write OK."
 exit 0
->>>>>>> f421cc4430b14bddcd9923ad4fd6c0755ddc7b40
+
