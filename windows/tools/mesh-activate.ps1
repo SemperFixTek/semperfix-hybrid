@@ -1,24 +1,46 @@
-# Phoenix v2 — Windows Mesh Activate
+# Phoenix v2 — Mesh Activate
 $ErrorActionPreference = "Stop"
 
-$configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
-$config = Get-Content $configPath | ConvertFrom-Json
+$phoenixPath = "C:\SemperFix\Phoenix\phoenix.json"
+if (-not (Test-Path $phoenixPath)) {
+    Write-Output '{"ActivationOK":false,"Reason":"phoenix.json not found"}'
+    exit 1
+}
 
-$ApiUrl = $config.ApiUrl
-$ApiKey = $config.ApiKey
+$phoenix = Get-Content $phoenixPath -Raw | ConvertFrom-Json
 
-$Headers = @{ "X-API-Key" = "$ApiKey" }
+$apiUrl = $phoenix.ApiUrl
+$apiKey = $phoenix.ApiKey
+$role   = $phoenix.NodeRole
 
-$ActivationOK = $false
+if (-not $apiUrl -or -not $apiKey -or -not $role) {
+    Write-Output '{"ActivationOK":false,"Reason":"phoenix.json missing required fields"}'
+    exit 1
+}
+
+$headers = @{ "X-API-Key" = $apiKey }
+
+$ok     = $false
+$reason = ""
 
 try {
-    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
-    if ($status.myID) { $ActivationOK = $true }
-} catch {}
+    $pong = Invoke-RestMethod "$apiUrl/rest/system/ping" -Headers $headers -TimeoutSec 4
+    if ($pong.ping -eq "pong") {
+        $ok = $true
+    }
+    else {
+        $reason = "Ping did not return pong"
+    }
+}
+catch {
+    $reason = "Syncthing ping unreachable"
+}
 
 $result = [ordered]@{
-    ActivationOK = $ActivationOK
-    ApiUrl       = $ApiUrl
+    ActivationOK = $ok
+    Reason       = $reason
+    ApiUrl       = $apiUrl
+    NodeRole     = $role
     Timestamp    = (Get-Date).ToString("o")
 }
 

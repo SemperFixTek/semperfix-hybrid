@@ -1,31 +1,45 @@
-# Phoenix v2 — Windows Mesh Status
+# Phoenix v2 — Mesh Status
 $ErrorActionPreference = "Stop"
 
-$configPath = "C:\SemperFix\ConfigBackup\phoenix.json"
-$config = Get-Content $configPath | ConvertFrom-Json
+$phoenixPath = "C:\SemperFix\Phoenix\phoenix.json"
+if (-not (Test-Path $phoenixPath)) {
+    Write-Output '{"Error":"phoenix.json not found"}'
+    exit 1
+}
 
-$ApiUrl = $config.ApiUrl
-$ApiKey = $config.ApiKey
+$phoenix = Get-Content $phoenixPath -Raw | ConvertFrom-Json
 
-$Headers = @{ "X-API-Key" = "$ApiKey" }
+$apiUrl = $phoenix.ApiUrl
+$apiKey = $phoenix.ApiKey
+$role   = $phoenix.NodeRole
 
-$ApiOK = $false
-$StatusOK = $false
+if (-not $apiUrl -or -not $apiKey -or -not $role) {
+    Write-Output '{"Error":"phoenix.json missing required fields"}'
+    exit 1
+}
+
+$headers = @{ "X-API-Key" = $apiKey }
+
+$apiOK    = $false
+$statusOK = $false
 
 try {
-    $pong = Invoke-RestMethod "$ApiUrl/rest/system/ping" -Headers $Headers
-    if ($pong.ping -eq "pong") { $ApiOK = $true }
-} catch {}
+    $pong = Invoke-RestMethod "$apiUrl/rest/system/ping" -Headers $headers -TimeoutSec 4
+    if ($pong.ping -eq "pong") { $apiOK = $true }
+}
+catch {}
 
 try {
-    $status = Invoke-RestMethod "$ApiUrl/rest/system/status" -Headers $Headers
-    if ($status.myID) { $StatusOK = $true }
-} catch {}
+    $status = Invoke-RestMethod "$apiUrl/rest/system/status" -Headers $headers -TimeoutSec 4
+    if ($status.myID) { $statusOK = $true }
+}
+catch {}
 
 $result = [ordered]@{
-    StatusOK  = $StatusOK
-    ApiOK     = $ApiOK
-    ApiUrl    = $ApiUrl
+    NodeRole  = $role
+    ApiUrl    = $apiUrl
+    ApiOK     = $apiOK
+    StatusOK  = $statusOK
     Timestamp = (Get-Date).ToString("o")
 }
 
