@@ -1,19 +1,34 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-CONFIG="/mnt/c/SemperFix/Phoenix/phoenix.json"
+CFG_PATH="/mnt/c/SemperFix/Phoenix/phoenix.json"
 
-if [ ! -f "$CONFIG" ]; then
-    echo '{"VerifyOK":false,"Reason":"Missing phoenix.json"}'
-    exit 1
+if [ ! -f "$CFG_PATH" ]; then
+  echo '{"VerifyOK":false,"VerifyReason":"phoenix.json not found"}'
+  exit 1
 fi
 
-API_URL=$(jq -r '.ApiUrl' "$CONFIG")
-API_KEY=$(jq -r '.ApiKey' "$CONFIG")
+API_URL="$(jq -r '.ApiUrl' "$CFG_PATH")"
+API_KEY="$(jq -r '.ApiKey' "$CFG_PATH")"
+ROLE="$(jq -r '.NodeRole' "$CFG_PATH")"
 
-STATUS=$(curl -s -H "X-API-Key: $API_KEY" "$API_URL/rest/system/status")
+VERIFY_OK=false
+REASON=""
 
-if echo "$STATUS" | jq -e '.myID!=null' >/dev/null; then
-    echo "{\"VerifyOK\":true,\"ApiUrl\":\"$API_URL\"}"
+if curl -s -m 4 -H "X-API-Key: $API_KEY" "$API_URL/rest/system/config" | jq -e '.gui.enabled == true and .gui.address != null' >/dev/null 2>&1; then
+  VERIFY_OK=true
 else
-    echo "{\"VerifyOK\":false,\"ApiUrl\":\"$API_URL\"}"
+  REASON="GUI not enabled or address missing"
 fi
+
+TS="$(date --iso-8601=seconds)"
+
+cat <<EOF
+{
+  "NodeRole": "$ROLE",
+  "ApiUrl": "$API_URL",
+  "VerifyOK": $VERIFY_OK,
+  "VerifyReason": "$REASON",
+  "Timestamp": "$TS"
+}
+EOF

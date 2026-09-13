@@ -1,6 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-HB="/mnt/c/SemperFix/ConfigBackup/phoenix-heartbeat.json"
+HB_PATH="/mnt/c/SemperFix/ConfigBackup/phoenix-heartbeat.json"
 
-echo "{\"Alive\":true,\"Timestamp\":\"$(date -Iseconds)\"}" > "$HB"
-cat "$HB"
+TS="$(date --iso-8601=seconds)"
+
+cat > "$HB_PATH" <<EOF
+{
+  "Timestamp": "$TS"
+}
+EOF
+
+cat "$HB_PATH"
