@@ -1,29 +1,42 @@
-param(
-    [switch]$DryRun,
-    [string]$ConfigPath = "C:\SemperFix\Tools\semperfix-config.json"
-)
+# Phoenix v2 — Failover Engine
+$ErrorActionPreference = "Stop"
+
+$statusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$heartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
+$failoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
+
+$StatusOK    = $false
+$HeartbeatOK = $false
+
+if (Test-Path $statusPath) {
+    try {
+        $status = Get-Content $statusPath -Raw | ConvertFrom-Json
+        if ($status.ApiOK -and $status.StatusOK) {
+            $StatusOK = $true
+        }
+    }
+    catch {}
+}
+
+if (Test-Path $heartbeatPath) {
+    try {
+        $hb = Get-Content $heartbeatPath -Raw | ConvertFrom-Json
+        $ts = [DateTime]::Parse($hb.Timestamp)
+        if ((Get-Date) - $ts -lt [TimeSpan]::FromMinutes(2)) {
+            $HeartbeatOK = $true
+        }
+    }
+    catch {}
+}
+
+$FailoverRequired = -not ($StatusOK -and $HeartbeatOK)
 
 $result = [ordered]@{
-    NodeRole  = $null
-    DryRun    = $DryRun.IsPresent
-    Timestamp = (Get-Date).ToString("o")
-    Action    = ""
-    Errors    = @()
+    FailoverRequired = $FailoverRequired
+    StatusOK         = $StatusOK
+    HeartbeatOK      = $HeartbeatOK
+    Timestamp        = (Get-Date).ToString("o")
 }
 
-try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $result.NodeRole = $config.NodeRole
-
-    switch ($config.NodeRole) {
-        "MASTERZERO" { $result.Action = "Promote SECONDARY (conceptual only)" }
-        "SECONDARY"  { $result.Action = "Rely on MASTERZERO and OFFSITE" }
-        "OFFSITE"    { $result.Action = "Remote continuity only" }
-        default      { $result.Action = "Unknown NodeRole" }
-    }
-}
-catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-}
-
-$result | ConvertTo-Json -Depth 6
+$result | ConvertTo-Json -Depth 10 | Set-Content $failoverPath
+$result | ConvertTo-Json -Depth 10

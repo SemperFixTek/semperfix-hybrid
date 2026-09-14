@@ -1,13 +1,13 @@
-<!-- fullWidth: false tocVisible: false tableWrap: true -->
-# Hybrid Dev Environment — Architecture & Operations
+# Hybrid Dev Environment — Architecture \& Operations
 
-> ***Layers*:** Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository  ***Paradigm***: Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
+> \\\\\\\*\\\\\\\*Layers:\\\\\\\*\\\\\\\* Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository
+> \\\\\\\*\\\\\\\*Paradigm:\\\\\\\*\\\\\\\* Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
 
 \---
 
 ## Table of Contents
 
-- [Hybrid Dev Environment — Architecture & Operations](#hybrid-dev-environment--architecture--operations)
+- [Hybrid Dev Environment — Architecture \& Operations](#hybrid-dev-environment--architecture--operations)
   - [Table of Contents](#table-of-contents)
   - [Architecture Overview](#architecture-overview)
   - [Layer Responsibilities](#layer-responsibilities)
@@ -28,7 +28,7 @@
     - [Phase 4 — Verify](#phase-4--verify)
   - [Environment Bootstrap](#environment-bootstrap)
   - [Security Model](#security-model)
-  - [Conventions & Rules](#conventions--rules)
+  - [Conventions \& Rules](#conventions--rules)
   - [Quick Reference](#quick-reference)
 
 \---
@@ -43,17 +43,17 @@
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │              WSL2 (Ubuntu)                       │   │
-│  │  All dev toolchains (Python, Node, Rust, Go)     │   │
-│  │  Docker daemon · SSH agent · Git operations      │   │
-│  │  .env files (local) · Compiled artifacts         │   │
+│  │  All dev toolchains (Python, Node, Rust, Go)    │   │
+│  │  Docker daemon · SSH agent · Git operations     │   │
+│  │  .env files (local) · Compiled artifacts        │   │
 │  │                                                  │   │
-│  │  ┌────────────────┐    ┌────────────────────┐    │   │
-│  │  │  OBSIDIAN VAULT│    │   GIT REPOSITORY   │    │   │
-│  │  │  (via Win mount│    │   (GitHub / remote)│    │   │
-│  │  │  Personal notes│    │   Source of truth  │    │   │
-│  │  │  Secrets ref   │    │   for all code &   │    │   │
-│  │  │  Draft docs    │    │   config templates │    │   │
-│  │  └────────────────┘    └────────────────────┘    │   │
+│  │  ┌────────────────┐   ┌────────────────────┐    │   │
+│  │  │  OBSIDIAN VAULT│   │   GIT REPOSITORY   │    │   │
+│  │  │  (via Win mount│   │   (GitHub / remote)│    │   │
+│  │  │  Personal notes│   │   Source of truth  │    │   │
+│  │  │  Secrets ref   │   │   for all code \\\\\\\&   │    │   │
+│  │  │  Draft docs    │   │   config templates │    │   │
+│  │  └────────────────┘   └────────────────────┘    │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -68,25 +68,25 @@
 
 The substrate layer. Manages hardware, GUI, and heavy binary assets.
 
-| Owns                            | Never Owns                   |
-| ------------------------------- | ---------------------------- |
-| System fonts & display config   | Source code                  |
-| Local backup archives (.tar.gz) | Secrets (plaintext)          |
-| Browser profiles & GUI apps     | Dev toolchains               |
-| Docker Desktop (frontend)       | .gitconfig identity          |
-| Video / audio / wallpaper media | Any file in .gitignore scope |
+|Owns|Never Owns|
+|-|-|
+|System fonts \& display config|Source code|
+|Local backup archives (.tar.gz)|Secrets (plaintext)|
+|Browser profiles \& GUI apps|Dev toolchains|
+|Docker Desktop (frontend)|.gitconfig identity|
+|Video / audio / wallpaper media|Any file in .gitignore scope|
 
 ### 🐧 WSL2 (Ubuntu)
 
 The execution layer. All build, run, and test operations happen here.
 
-| Owns                          | Never Owns                                          |
-| ----------------------------- | --------------------------------------------------- |
-| All dev toolchains & runtimes | Windows system files                                |
-| SSH keys (\~/.ssh/)           | Vault-designated secrets                            |
-| Local .env files (gitignored) | Committed binary blobs                              |
-| Docker daemon & containers    | Raw database files (commit .sql migrations instead) |
-| Compiled artifacts & logs     | Large ML model weights                              |
+|Owns|Never Owns|
+|-|-|
+|All dev toolchains \& runtimes|Windows system files|
+|SSH keys (\~/.ssh/)|Vault-designated secrets|
+|Local .env files (gitignored)|Committed binary blobs|
+|Docker daemon \& containers|Raw database files (commit .sql migrations instead)|
+|Compiled artifacts \& logs|Large ML model weights|
 
 **WSL mount convention:**
 
@@ -96,32 +96,32 @@ The execution layer. All build, run, and test operations happen here.
 /mnt/c/Vault/    # Obsidian Vault (cross-accessible)
 
 # Working directory convention:
-~/projects/      # All repos cloned here inside WSL fs
+\\\\\\\~/projects/      # All repos cloned here inside WSL fs
 ```
 
 ### 🔐 Obsidian Vault
 
-The knowledge & secrets reference layer. Lives on Windows filesystem, accessible from both sides.
+The knowledge \& secrets reference layer. Lives on Windows filesystem, accessible from both sides.
 
-| Owns                                     | Never Owns                                   |
-| ---------------------------------------- | -------------------------------------------- |
-| Personal & team notes (.md)              | Executable code                              |
-| API token references (named, not raw)    | Files that need Git version history          |
-| Architecture diagrams (reference copies) | .env files                                   |
-| Certificate metadata & expiry tracking   | Compiled/binary assets                       |
-| Draft docs before they graduate to Repo  | Secrets in plaintext (use a secrets manager) |
+|Owns|Never Owns|
+|-|-|
+|Personal \& team notes (.md)|Executable code|
+|API token references (named, not raw)|Files that need Git version history|
+|Architecture diagrams (reference copies)|.env files|
+|Certificate metadata \& expiry tracking|Compiled/binary assets|
+|Draft docs before they graduate to Repo|Secrets in plaintext (use a secrets manager)|
 
 ### 📦 Git Repository
 
 The collaboration and truth layer. If it needs to be shared or versioned, it lives here.
 
-| Owns                                              | Never Owns                           |
-| ------------------------------------------------- | ------------------------------------ |
-| All source code                                   | Real secrets or credentials          |
-| Config templates (.env.example)                   | Compiled binaries or large artifacts |
-| Infrastructure-as-code (Terraform, Ansible, K8s)  | Raw database files                   |
-| CI/CD pipeline definitions                        | Personal notes                       |
-| Committed documentation (README, ADRs, CHANGELOG) | Log files                            |
+|Owns|Never Owns|
+|-|-|
+|All source code|Real secrets or credentials|
+|Config templates (.env.example)|Compiled binaries or large artifacts|
+|Infrastructure-as-code (Terraform, Ansible, K8s)|Raw database files|
+|CI/CD pipeline definitions|Personal notes|
+|Committed documentation (README, ADRs, CHANGELOG)|Log files|
 
 \---
 
@@ -338,18 +338,18 @@ git clone git@github.com:<org>/<repo>.git \\\\\\\~/projects/<repo>
 
 ## Security Model
 
-| Threat                     | Mitigation                                                                |
-| -------------------------- | ------------------------------------------------------------------------- |
-| Secret committed to Repo   | Pre-commit hook (detect-secrets / gitleaks)                               |
-| Secret in Vault plaintext  | Vault notes contain names/references only; raw values in password manager |
-| WSL .env leaked via backup | Backup excludes WSL home; Windows backup excludes /mnt/c/… WSL paths      |
-| SSH key compromise         | Ed25519 keys; WSL key ≠ Windows key; rotate annually                      |
-| Supply chain (deps)        | Lockfiles committed; Dependabot/Renovate enabled                          |
-| Stale secrets              | Vault/02-Areas/Security/ tracks expiry dates; quarterly review            |
+|Threat|Mitigation|
+|-|-|
+|Secret committed to Repo|Pre-commit hook (detect-secrets / gitleaks)|
+|Secret in Vault plaintext|Vault notes contain names/references only; raw values in password manager|
+|WSL .env leaked via backup|Backup excludes WSL home; Windows backup excludes /mnt/c/… WSL paths|
+|SSH key compromise|Ed25519 keys; WSL key ≠ Windows key; rotate annually|
+|Supply chain (deps)|Lockfiles committed; Dependabot/Renovate enabled|
+|Stale secrets|Vault/02-Areas/Security/ tracks expiry dates; quarterly review|
 
 \---
 
-## Conventions & Rules
+## Conventions \& Rules
 
 1. **One canonical home.** Every file has exactly one primary layer. The placement matrix is the authority.
 2. **Secrets never touch the Repo.** Not even in history. Use `git filter-repo` if they do.
@@ -375,4 +375,4 @@ Repo       Code, IaC, config templates       Real secrets, binaries, logs
 
 \---
 
-*Last updated: 2026-07-09 | Maintained in:* `docs/ARCHITECTURE.md`
+*Last updated: 2026-07-09 | Maintained in: `docs/ARCHITECTURE.md`*

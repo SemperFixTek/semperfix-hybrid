@@ -1,62 +1,47 @@
-param(
-    [string]$ConfigPath = "C:\SemperFix\Tools\semperfix-config.json"
-)
+# Phoenix v2 — Mesh Verify
+$ErrorActionPreference = "Stop"
 
-$result = [ordered]@{
-    NodeRole  = $null
-    Timestamp = (Get-Date).ToString("o")
-    Folders   = @()
-    Healthy   = $false
-    Errors    = @()
+$phoenixPath = "C:\SemperFix\Phoenix\phoenix.json"
+if (-not (Test-Path $phoenixPath)) {
+    Write-Output '{"Error":"phoenix.json not found"}'
+    exit 1
 }
 
-# Load config
+$phoenix = Get-Content $phoenixPath -Raw | ConvertFrom-Json
+
+$apiUrl = $phoenix.ApiUrl
+$apiKey = $phoenix.ApiKey
+$role   = $phoenix.NodeRole
+
+if (-not $apiUrl -or -not $apiKey -or -not $role) {
+    Write-Output '{"Error":"phoenix.json missing required fields"}'
+    exit 1
+}
+
+$headers = @{ "X-API-Key" = $apiKey }
+
+$verifyOK = $false
+$reason   = ""
+
 try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $ApiKey  = $config.ApiKey
-    $BaseUrl = $config.BaseUrl
-    $result.NodeRole = $config.NodeRole
-}
-catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Load API helper
-try {
-    . "C:\SemperFix\Tools\syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
-}
-catch {
-    $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Folder status
-try {
-    $folders = Invoke-SyncthingApi -Path "/rest/db/status"
-
-    if ($folders -is [System.Collections.IDictionary]) {
-        foreach ($pair in $folders.GetEnumerator()) {
-            $folder = $pair.Value
-            $result.Folders += [ordered]@{
-                FolderID    = $pair.Key
-                GlobalBytes = $folder.globalBytes
-                InSync      = ($folder.globalBytes -eq $folder.inSyncBytes)
-            }
-        }
-
-        $result.Healthy = -not ($result.Folders | Where-Object { -not $_.InSync })
-    }
-}
-catch {
-    if ($_.Exception.Message -like "*404*") {
-        # Golden Template empty state
-        $result.Folders = @()
-        $result.Healthy = $true
+    $cfg = Invoke-RestMethod "$apiUrl/rest/system/config" -Headers $headers -TimeoutSec 4
+    if ($cfg.gui.enabled -and $cfg.gui.address) {
+        $verifyOK = $true
     }
     else {
-        $result.Errors += "Folder status API failed: $($_.Exception.Message)"
+        $reason = "GUI not enabled or address missing"
     }
 }
+catch {
+    $reason = "Syncthing config unreachable"
+}
 
-$result | ConvertTo-Json -Depth 6
+$result = [ordered]@{
+    NodeRole   = $role
+    ApiUrl     = $apiUrl
+    VerifyOK   = $verifyOK
+    VerifyReason = $reason
+    Timestamp  = (Get-Date).ToString("o")
+}
+
+$result | ConvertTo-Json -Depth 10

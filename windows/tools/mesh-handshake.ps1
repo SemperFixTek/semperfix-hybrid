@@ -1,51 +1,68 @@
-param(
-    [string]$ConfigPath = "C:\SemperFix\Tools\semperfix-config.json"
-)
+# Phoenix v2 — Mesh Handshake
+$ErrorActionPreference = "Stop"
 
-$result = [ordered]@{
-    NodeRole  = $null
-    Timestamp = (Get-Date).ToString("o")
-    Devices   = @()
-    Errors    = @()
+$phoenixPath = "C:\SemperFix\Phoenix\phoenix.json"
+if (-not (Test-Path $phoenixPath)) {
+    Write-Output '{"Error":"phoenix.json not found"}'
+    exit 1
 }
 
-# Load config
+$phoenix = Get-Content $phoenixPath -Raw | ConvertFrom-Json
+
+$apiUrl  = $phoenix.ApiUrl
+$apiKey  = $phoenix.ApiKey
+$role    = $phoenix.NodeRole
+
+if (-not $apiUrl -or -not $apiKey -or -not $role) {
+    Write-Output '{"Error":"phoenix.json missing required fields"}'
+    exit 1
+}
+
+$headers = @{ "X-API-Key" = $apiKey }
+
+$identityOK     = $false
+$identityReason = ""
+$deviceID       = ""
+
 try {
-    $config = Get-Content $ConfigPath | ConvertFrom-Json
-    $ApiKey  = $config.ApiKey
-    $BaseUrl = $config.BaseUrl
-    $result.NodeRole = $config.NodeRole
-}
-catch {
-    $result.Errors += "Config load failed: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Load API helper
-try {
-    . "C:\SemperFix\Tools\syncthing-api.ps1" -ApiKey $ApiKey -BaseUrl $BaseUrl
-}
-catch {
-    $result.Errors += "Failed to load syncthing-api.ps1: $($_.Exception.Message)"
-    return ($result | ConvertTo-Json -Depth 6)
-}
-
-# Device connections
-try {
-    $connections = Invoke-SyncthingApi -Path "/rest/system/connections"
-
-    if ($connections.connections -is [System.Collections.IDictionary]) {
-        foreach ($pair in $connections.connections.GetEnumerator()) {
-            $result.Devices += [ordered]@{
-                DeviceID  = $pair.Key
-                Connected = $pair.Value.connected
-                Address   = $pair.Value.address
-            }
-        }
+    $statusJson = Invoke-RestMethod "$apiUrl/rest/system/status" -Headers $headers -TimeoutSec 4
+    if ($statusJson.myID) {
+        $identityOK = $true
+        $deviceID   = $statusJson.myID
+    }
+    else {
+        $identityReason = "Syncthing returned empty device ID"
     }
 }
 catch {
-    $result.Errors += "Handshake failed: $($_.Exception.Message)"
+    $identityReason = "Syncthing status unreachable"
 }
 
-$result | ConvertTo-Json -Depth 6
+$endpointOK  = $false
+$meshEndpoint = $phoenix.MeshEndpoint
+
+if ($meshEndpoint) {
+    try {
+        $ep = $meshEndpoint.Replace("quic://","")
+        $host, $port = $ep.Split(":")
+        $client = New-Object System.Net.Sockets.TcpClient
+        $client.Connect($host, [int]$port)
+        $client.Close()
+        $endpointOK = $true
+    }
+    catch {
+        $endpointOK = $false
+    }
+}
+
+$result = [ordered]@{
+    NodeRole       = $role
+    ApiUrl         = $apiUrl
+    IdentityOK     = $identityOK
+    IdentityReason = $identityReason
+    DeviceID       = $deviceID
+    EndpointOK     = $endpointOK
+    Timestamp      = (Get-Date).ToString("o")
+}
+
+$result | ConvertTo-Json -Depth 10
