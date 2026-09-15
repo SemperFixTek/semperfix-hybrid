@@ -1,53 +1,130 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CFG_PATH="/mnt/c/SemperFix/Phoenix/phoenix.json"
+# ============================================================
+# Phoenix Mesh Handshake — SemperFix Edition
+# Drop‑in replacement with:
+# - Structured logging
+# - Color-coded output
+# - JSON diagnostic export
+# ============================================================
 
-if [ ! -f "$CFG_PATH" ]; then
-  echo '{"Error":"phoenix.json not found"}'
-  exit 1
-fi
+# ---------- Color Codes ----------
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[0;34m"
+NC="\033[0m"   # No Color
 
-API_URL="$(jq -r '.ApiUrl' "$CFG_PATH")"
-API_KEY="$(jq -r '.ApiKey' "$CFG_PATH")"
-ROLE="$(jq -r '.NodeRole' "$CFG_PATH")"
-MESH_EP="$(jq -r '.MeshEndpoint // empty' "$CFG_PATH")"
+# ---------- Logging ----------
+LOGFILE="/opt/semperfix/logs/mesh-handshake.log"
+JSON_OUT="/opt/semperfix/logs/mesh-handshake.json"
 
-IDENTITY_OK=false
-IDENTITY_REASON=""
-DEVICE_ID=""
+log() {
+    local level="$1"
+    local msg="$2"
+    local color="$3"
 
-if STATUS_JSON="$(curl -s -m 4 -H "X-API-Key: $API_KEY" "$API_URL/rest/system/status")"; then
-  if echo "$STATUS_JSON" | jq -e '.myID != null' >/dev/null 2>&1; then
-    IDENTITY_OK=true
-    DEVICE_ID="$(echo "$STATUS_JSON" | jq -r '.myID')"
-  else
-    IDENTITY_REASON="Syncthing returned empty device ID"
-  fi
-else
-  IDENTITY_REASON="Syncthing status unreachable"
-fi
-
-ENDPOINT_OK=false
-if [ -n "$MESH_EP" ]; then
-  EP="${MESH_EP#quic://}"
-  HOST="${EP%%:*}"
-  PORT="${EP##*:}"
-  if timeout 3 bash -c "echo > /dev/tcp/$HOST/$PORT" >/dev/null 2>&1; then
-    ENDPOINT_OK=true
-  fi
-fi
-
-TS="$(date --iso-8601=seconds)"
-
-cat <<EOF
-{
-  "NodeRole": "$ROLE",
-  "ApiUrl": "$API_URL",
-  "IdentityOK": $IDENTITY_OK,
-  "IdentityReason": "$IDENTITY_REASON",
-  "DeviceID": "$DEVICE_ID",
-  "EndpointOK": $ENDPOINT_OK,
-  "Timestamp": "$TS"
+    echo -e "${color}[${level}]${NC} ${msg}"
+    echo "[${level}] ${msg}" >> "$LOGFILE"
 }
-EOF
+
+# ---------- JSON Builder ----------
+json_init() {
+    echo "{" > "$JSON_OUT"
+}
+
+json_add() {
+    local key="$1"
+    local value="$2"
+    echo "  \"${key}\": \"${value}\"," >> "$JSON_OUT"
+}
+
+json_close() {
+    sed -i '$ s/,$//' "$JSON_OUT"
+    echo "}" >> "$JSON_OUT"
+}
+
+# ---------- QUIC Diagnostic ----------
+check_quic() {
+    local target_ip="$1"
+    local target_port="$2"
+
+    log "INFO" "Checking QUIC reachability to ${target_ip}:${target_port}" "$BLUE"
+
+    if nc -zvu "${target_ip}" "${target_port}" &>/dev/null; then
+        log "PASS" "QUIC reachable" "$GREEN"
+        json_add "quic_status" "reachable"
+        return 0
+    else
+        log "FAIL" "QUIC unreachable" "$RED"
+        json_add "quic_status" "unreachable"
+        return 1
+    fi
+}
+
+# ---------- Syncthing API Check ----------
+check_syncthing_api() {
+    local api_url="$1"
+    local api_key="$2"
+
+    log "INFO" "Checking Syncthing API at ${api_url}" "$BLUE"
+
+    local status
+    status=$(curl -s -H "X-API-Key: ${api_key}" "${api_url}/system/ping" || echo "error")
+
+    if [[ "$status" == *"pong"* ]]; then
+        log "PASS" "Syncthing API reachable" "$GREEN"
+        json_add "syncthing_api" "reachable"
+        return 0
+    else
+        log "FAIL" "Syncthing API unreachable" "$RED"
+        json_add "syncthing_api" "unreachable"
+        return 1
+    fi
+}
+
+# ---------- Peer Dump ----------
+dump_peers() {
+    local api_url="$1"
+    local api_key="$2"
+
+    log "INFO" "Dumping peer list" "$BLUE"
+
+    local peers
+    peers=$(curl -s -H "X-API-Key: ${api_key}" "${api_url}/system/connections")
+
+    echo "$peers" >> "$LOGFILE"
+    json_add "peer_dump" "$(echo "$peers" | tr -d '"')"
+}
+
+# ---------- Main ----------
+main() {
+    mkdir -p /opt/semperfix/logs
+    : > "$LOGFILE"
+
+    json_init
+
+    log "INFO" "Starting Phoenix Mesh Handshake" "$YELLOW"
+    json_add "timestamp" "$(date -Iseconds)"
+
+    # These values should already be correct for MASTERZERO
+    local API_URL="http://127.0.0.1:8384/rest"
+    local API_KEY="${SYNCTHING_API_KEY:-UNSET}"
+    local PEER_IP="10.10.10.2"
+    local PEER_PORT="22000"
+
+    json_add "node_role" "MASTERZERO"
+    json_add "api_url" "$API_URL"
+    json_add "peer_target" "${PEER_IP}:${PEER_PORT}"
+
+    # Run diagnostics
+    check_syncthing_api "$API_URL" "$API_KEY"
+    check_quic "$PEER_IP" "$PEER_PORT"
+    dump_peers "$API_URL" "$API_KEY"
+
+    log "INFO" "Handshake diagnostics complete" "$GREEN"
+    json_close
+}
+
+main "$@"
