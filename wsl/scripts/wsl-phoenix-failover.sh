@@ -1,41 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATUS_PATH="/mnt/c/SemperFix/ConfigBackup/phoenix-status.json"
-HB_PATH="/mnt/c/SemperFix/ConfigBackup/phoenix-heartbeat.json"
-FO_PATH="/mnt/c/SemperFix/ConfigBackup/phoenix-failover.json"
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_load_config
 
-STATUS_OK=false
-HB_OK=false
+HEARTBEAT_FILE="/opt/semperfix/state/phoenix-heartbeat.json"
+FAILOVER_FILE="/opt/semperfix/state/phoenix-failover.json"
+LOGFILE="/opt/semperfix/logs/phoenix-failover.log"
 
-if [ -f "$STATUS_PATH" ]; then
-  STATUS_OK="$(jq -r '.ApiOK and .StatusOK' "$STATUS_PATH")"
-fi
+RED="\033[0;31m"; GREEN="\033[0;32m"; YELLOW="\033[1;33m"; BLUE="\033[0;34m"; NC="\033[0m"
 
-if [ -f "$HB_PATH" ]; then
-  HB_TS="$(jq -r '.Timestamp' "$HB_PATH")"
-  if [ "$HB_TS" != "null" ]; then
-    # heartbeat within 2 minutes
-    if [ $(( $(date +%s) - $(date -d "$HB_TS" +%s) )) -lt 120 ]; then
-      HB_OK=true
-    fi
-  fi
-fi
-
-FAILOVER=true
-if [ "$STATUS_OK" = "true" ] && [ "$HB_OK" = "true" ]; then
-  FAILOVER=false
-fi
-
-TS="$(date --iso-8601=seconds)"
-
-cat > "$FO_PATH" <<EOF
-{
-  "FailoverRequired": $FAILOVER,
-  "StatusOK": $STATUS_OK,
-  "HeartbeatOK": $HB_OK,
-  "Timestamp": "$TS"
+log() {
+    echo -e "${3}[${1}]${NC} ${2}"
+    echo "[${1}] ${2}" >> "$LOGFILE"
 }
-EOF
 
-cat "$FO_PATH"
+json_init() { echo "{" > "$FAILOVER_FILE"; }
+json_add() {
+    local key="$1"
+    local value="$2"
+    value=$(printf '%s' "$value" | jq -Rsa .)
+    value="${value:1:${#value}-2}"
+    echo "  \"${key}\": \"${value}\"," >> "$FAILOVER_FILE"
+}
+json_close() {
+    sed -i '$ s/,$//' "$FAILOVER_FILE"
+    echo "}" >>
