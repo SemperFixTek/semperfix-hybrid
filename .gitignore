@@ -18,3 +18,14 @@ Zone.Identifier
 
 # Syncthing temp
 .syncthing.tmp
+
+#Docker container files
+docker-compose.override.yml
+Devcontainer.json
+Devcontainer-lock.json
+.devcontainer
+
+#Github
+Dependabot.yml
+.github
+.github/workflows
