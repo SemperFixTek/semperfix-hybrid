@@ -25,4 +25,7 @@ json_add() {
 }
 json_close() {
     sed -i '$ s/,$//' "$FAILOVER_FILE"
-    echo "}" >>
+    echo "}" >> "$FAILOVER_FILE"
+}
+
+main "$@"
