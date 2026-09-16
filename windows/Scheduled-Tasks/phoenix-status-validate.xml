@@ -1,6 +1,6 @@
 <Task version="1.4">
   <RegistrationInfo>
-    <Description>SemperFix Mesh Status Validate (v2)</Description>
+    <Description>SemperFix Phoenix Status Validate (v2)</Description>
   </RegistrationInfo>
   <Triggers>
     <TimeTrigger>
@@ -23,7 +23,7 @@
   <Actions Context="Author">
     <Exec>
       <Command>wsl.exe</Command>
-      <Arguments>/opt/semperfix/scripts/wsl-mesh-status-validate.sh</Arguments>
+      <Arguments>/opt/semperfix/scripts/wsl-phoenix-status-validate.sh</Arguments>
     </Exec>
   </Actions>
 </Task>

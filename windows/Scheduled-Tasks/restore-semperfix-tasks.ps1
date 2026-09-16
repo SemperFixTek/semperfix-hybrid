@@ -11,9 +11,9 @@ $Tasks = @(
     "phoenix-supervisor.xml",
     "phoenix-failover.xml",
     "mesh-status.xml",
-    "mesh-status-validate.xml"
+    "phoenix-status-validate.xml"
 )
-
+    
 foreach ($t in $Tasks) {
     $xml = Join-Path $TaskPath $t
 
