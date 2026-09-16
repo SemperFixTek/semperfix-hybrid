@@ -12,18 +12,11 @@ log() {
     echo "[${1}] ${2}" >> "$LOGFILE"
 }
 
-json_init() { echo "{" > "$OUT_FILE"; }
-json_add() {
-    local key="$1"
-    local value="$2"
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
-    echo "  \"${key}\": \"${value}\"," >> "$OUT_FILE"
-}
-json_close() {
-    sed -i '$ s/,$//' "$OUT_FILE"
-    echo "}" >> "$OUT_FILE"
-}
+# Use shared JSON helpers from phoenix-json.sh
+json_init() { json_init "$OUT_FILE"; }
+json_add() { json_add "$OUT_FILE" "$1" "$2"; }
+json_add_object_start() { json_add_object_start "$OUT_FILE" "$1"; }
+json_add_object_end() { json_add_object_end "$OUT_FILE"; }
 
 main() {
     mkdir -p /opt/semperfix/state
@@ -33,7 +26,7 @@ main() {
     log "INFO" "Phoenix Status Write (v2)" "$BLUE"
 
     if [[ ! -f "$STATUS_FILE" ]]; then
-        log "FAIL" "Supervisor JSON missing" "$RED"
+        log "FAIL" "Supervisor JSON missing at $STATUS_FILE" "$RED"
         exit 0
     fi
 
@@ -47,18 +40,29 @@ main() {
         mesh_ok="true"
     fi
 
+    # These are optional; if missing, they’ll be "null"
+    local api_ok peer_connected syncthing_ready quic_ok
+    api_ok=$(jq -r '.api_ok // "unknown"' "$STATUS_FILE")
+    peer_connected=$(jq -r '.peer_connected // "unknown"' "$STATUS_FILE")
+    syncthing_ready=$(jq -r '.syncthing_ready // "unknown"' "$STATUS_FILE")
+    quic_ok=$(jq -r '.quic_ok // "unknown"' "$STATUS_FILE")
+
     json_init
+
     json_add "timestamp" "$(date -Iseconds)"
     json_add "node_role" "$(jq -r '.node_role' "$STATUS_FILE")"
     json_add "api_url" "$(jq -r '.api_url' "$STATUS_FILE")"
     json_add "peer_target" "$(jq -r '.peer_target' "$STATUS_FILE")"
 
+    json_add_object_start "health"
+    json_add "api_ok" "$api_ok"
+    json_add "peer_connected" "$peer_connected"
+    json_add "syncthing_ready" "$syncthing_ready"
+    json_add "quic_ok" "$quic_ok"
     json_add "mesh_ok" "$mesh_ok"
-    json_add "handshake" "$handshake"
-    json_add "verify" "$verify"
-    json_add "activate" "$activate"
+    json_add_object_end
 
-    json_close
+    json_close "$OUT_FILE"
 
     log "INFO" "Phoenix status written to $OUT_FILE" "$GREEN"
 }
