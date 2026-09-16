@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-#
+
 STATUS_FILE="/opt/semperfix/state/mesh-status.json"
 LOGFILE="/opt/semperfix/logs/mesh-status.log"
 
