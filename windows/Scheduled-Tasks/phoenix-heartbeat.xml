@@ -1,49 +1,31 @@
-<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+<Task version="1.4">
   <RegistrationInfo>
-    <Description>Phoenix v2 Heartbeat Writer</Description>
+    <Description>SemperFix Phoenix Heartbeat (v2)</Description>
   </RegistrationInfo>
-
   <Triggers>
-    <BootTrigger>
-      <Enabled>true</Enabled>
-    </BootTrigger>
-
-    <LogonTrigger>
-      <Enabled>true</Enabled>
-    </LogonTrigger>
-
-    <CalendarTrigger>
-      <StartBoundary>2026-09-12T19:45:00</StartBoundary>
-      <Enabled>true</Enabled>
-      <ScheduleByDay>
-        <DaysInterval>1</DaysInterval>
-      </ScheduleByDay>
+    <TimeTrigger>
       <Repetition>
-        <Interval>PT1M</Interval>
-        <StopAtDurationEnd>false</StopAtDurationEnd>
+        <Interval>PT30S</Interval>
       </Repetition>
-    </CalendarTrigger>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+    </TimeTrigger>
   </Triggers>
-
   <Principals>
     <Principal id="Author">
-      <UserId>S-1-5-18</UserId>
+      <UserId>SYSTEM</UserId>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
-
   <Settings>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <ExecutionTimeLimit>PT30S</ExecutionTimeLimit>
     <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
   </Settings>
-
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -WindowStyle Hidden -File "C:\SemperFix\Tools\phoenix-heartbeat.ps1"</Arguments>
+      <Command>wsl.exe</Command>
+      <Arguments>/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh</Arguments>
     </Exec>
   </Actions>
 </Task>

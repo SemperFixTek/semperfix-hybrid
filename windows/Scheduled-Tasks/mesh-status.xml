@@ -1,0 +1,29 @@
+<Task version="1.4">
+  <RegistrationInfo>
+    <Description>SemperFix Mesh Status (v2)</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT1M</Interval>
+      </Repetition>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>SYSTEM</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wsl.exe</Command>
+      <Arguments>/opt/semperfix/scripts/wsl-mesh-status.sh</Arguments>
+    </Exec>
+  </Actions>
+</Task>
