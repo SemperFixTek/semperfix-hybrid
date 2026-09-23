@@ -25,6 +25,15 @@ json_add() {
     echo "  \"${key}\": \"${value}\"," >> "$file"
 }
 
+# ---------- Add raw JSON (for peer_dump) ----------
+json_add_raw() {
+    local file="$1"
+    local key="$2"
+    local raw="$3"
+
+    echo "  \"${key}\": ${raw}," >> "$file"
+}
+
 # ---------- Close JSON (remove trailing comma) ----------
 json_close() {
     local file="$1"
@@ -34,46 +43,4 @@ json_close() {
 
     # Close JSON object
     echo "}" >> "$file"
-}
-
-# ---------- Utility: Write raw JSON blocks ----------
-json_add_raw() {
-    local file="$1"
-    local key="$2"
-    local raw="$3"
-
-    echo "  \"${key}\": ${raw}," >> "$file"
-}
-
-# ---------- Utility: Write arrays ----------
-json_add_array() {
-    local file="$1"
-    local key="$2"
-    shift 2
-
-    echo "  \"${key}\": [" >> "$file"
-
-    for item in "$@"; do
-        item=$(printf '%s' "$item" | jq -Rsa .)
-        item="${item:1:${#item}-2}"
-        echo "    \"${item}\"," >> "$file"
-    done
-
-    # Remove trailing comma
-    sed -i '$ s/,$//' "$file"
-
-    echo "  ]," >> "$file"
-}
-
-# ---------- Utility: Write nested objects ----------
-json_add_object_start() {
-    local file="$1"
-    local key="$2"
-    echo "  \"${key}\": {" >> "$file"
-}
-
-json_add_object_end() {
-    local file="$1"
-    sed -i '$ s/,$//' "$file"
-    echo "  }," >> "$file"
 }

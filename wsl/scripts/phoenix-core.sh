@@ -2,79 +2,54 @@
 set -euo pipefail
 
 # ============================================================
-# Phoenix Core (v2)
-# Shared configuration + environment loader for all WSL modules
+# Phoenix v2 — Core Module
+# Provides:
+# - Config loader
+# - Shared environment variables
+# - Unified error/logging helpers (optional expansion later)
 # ============================================================
 
-# ---------- Base Paths ----------
-PHOENIX_ROOT="/opt/semperfix"
-PHOENIX_CONFIG="$PHOENIX_ROOT/config/phoenix.conf"
+CONFIG_FILE="/opt/semperfix/config/phoenix.conf"
+METADATA_FILE="/opt/semperfix/config/phoenix.json"
 
-# ---------- Default Values ----------
-NODE_ROLE="UNKNOWN"
-API_URL=""
-API_KEY=""
-PEER_IP=""
-PEER_PORT=""
+phoenix_load_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo "[ERROR] Phoenix config file not found: $CONFIG_FILE"
+        exit 1
+    fi
 
-# ---------- Logging Colors ----------
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+    if [[ ! -f "$METADATA_FILE" ]]; then
+        echo "[ERROR] Phoenix metadata file not found: $METADATA_FILE"
+        exit 1
+    fi
 
-# ---------- Safe Logging Helper ----------
+    # Load shell config
+    source "$CONFIG_FILE"
+
+    # Load JSON metadata
+    API_URL=$(jq -r '.ApiUrl' "$METADATA_FILE")
+    API_KEY=$(jq -r '.ApiKey' "$METADATA_FILE")
+    NODE_ROLE=$(jq -r '.NodeRole' "$METADATA_FILE")
+    MESH_ENDPOINT=$(jq -r '.MeshEndpoint' "$METADATA_FILE")
+
+    if [[ -z "$API_URL" || -z "$API_KEY" ]]; then
+        echo "[ERROR] Phoenix metadata missing required fields (ApiUrl/ApiKey)"
+        exit 1
+    fi
+}
+
+
+# ---------- Optional Shared Logging (future expansion) ----------
 phoenix_log() {
     local level="$1"
     local msg="$2"
-    local color="${3:-$NC}"
-
-    echo -e "${color}[${level}]${NC} ${msg}"
+    echo "[${level}] ${msg}"
 }
 
-# ---------- Config Loader ----------
-phoenix_load_config() {
-    if [[ ! -f "$PHOENIX_CONFIG" ]]; then
-        phoenix_log "WARN" "Phoenix config missing at $PHOENIX_CONFIG" "$YELLOW"
-        return 0
-    fi
-
-    # shellcheck disable=SC1090
-    source "$PHOENIX_CONFIG"
-
-    # Validate required fields
-    [[ -z "${NODE_ROLE:-}" ]] && phoenix_log "WARN" "NODE_ROLE missing in config" "$YELLOW"
-    [[ -z "${API_URL:-}" ]] && phoenix_log "WARN" "API_URL missing in config" "$YELLOW"
-    [[ -z "${API_KEY:-}" ]] && phoenix_log "WARN" "API_KEY missing in config" "$YELLOW"
-    [[ -z "${PEER_IP:-}" ]] && phoenix_log "WARN" "PEER_IP missing in config" "$YELLOW"
-    [[ -z "${PEER_PORT:-}" ]] && phoenix_log "WARN" "PEER_PORT missing in config" "$YELLOW"
-
-    phoenix_log "INFO" "Phoenix config loaded (v2)" "$BLUE"
-}
-
-# ---------- JSON Writer Import ----------
-# All modules rely on phoenix-json.sh for safe JSON output
-if [[ -f "$PHOENIX_ROOT/scripts/phoenix-json.sh" ]]; then
-    # shellcheck disable=SC1090
-    source "$PHOENIX_ROOT/scripts/phoenix-json.sh"
-else
-    phoenix_log "WARN" "phoenix-json.sh missing — JSON output may fail" "$YELLOW"
-fi
-
-# ---------- Utility: Safe Curl Wrapper ----------
-phoenix_api_get() {
-    local endpoint="$1"
-    curl -s -H "X-API-Key: $API_KEY" "$API_URL/$endpoint"
-}
-
-# ---------- Utility: QUIC Packet Sender ----------
-phoenix_quic_send() {
-    local payload="$1"
-    echo "$payload" | nc -u -w1 "$PEER_IP" "$PEER_PORT" &>/dev/null
-}
-
-# ---------- Utility: Timestamp ----------
-phoenix_timestamp() {
-    date -Iseconds
+# ---------- Optional Shared Error Handler ----------
+phoenix_error() {
+    local code="$1"
+    local msg="$2"
+    echo "[ERROR] (${code}) ${msg}"
+    exit 1
 }
