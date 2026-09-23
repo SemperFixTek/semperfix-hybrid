@@ -1,76 +1,77 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SUPERVISOR="/opt/semperfix/logs/phoenix-supervisor.json"
-STATUS="/opt/semperfix/state/phoenix-status.json"
-HEARTBEAT="/opt/semperfix/state/phoenix-heartbeat.json"
-OUT="/opt/semperfix/state/mesh-status.json"
-LOG="/opt/semperfix/logs/mesh-status.log"
+# ============================================================
+# Phoenix Mesh Status — SemperFix Edition (v2)
+# ============================================================
 
-RED="\033[0;31m"; GREEN="\033[0;32m"; YELLOW="\033[1;33m"; BLUE="\033[0;34m"; NC="\033[0m"
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_load_config
+
+STATUS_LOG="/opt/semperfix/logs/mesh-status.log"
+STATUS_JSON="/opt/semperfix/logs/mesh-status.json"
+
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[0;34m"
+NC="\033[0m"
 
 log() {
     echo -e "${3}[${1}]${NC} ${2}"
-    echo "[${1}] ${2}" >> "$LOG"
+    echo "[${1}] ${2}" >> "$STATUS_LOG"
 }
 
-json_init() { echo "{" > "$OUT"; }
-json_add() {
-    local key="$1"
-    local value="$2"
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
-    echo "  \"${key}\": \"${value}\"," >> "$OUT"
-}
+json_init() { echo "{" > "$STATUS_JSON"; }
+json_add() { echo "  \"$1\": \"$2\"," >> "$STATUS_JSON"; }
 json_close() {
-    sed -i '$ s/,$//' "$OUT"
-    echo "}" >> "$OUT"
+    sed -i '$ s/,$//' "$STATUS_JSON"
+    echo "}" >> "$STATUS_JSON"
+}
+
+check_api() {
+    local pong
+    pong=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/ping" || echo "error")
+
+    if [[ "$pong" == *"pong"* ]]; then
+        log "PASS" "Syncthing API reachable" "$GREEN"
+        json_add "api_ok" "true"
+    else
+        log "FAIL" "Syncthing API unreachable" "$RED"
+        json_add "api_ok" "false"
+    fi
+}
+
+check_connections() {
+    local matrix
+    matrix=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/connections")
+
+    echo "$matrix" >> "$STATUS_LOG"
+
+    if [[ "$matrix" == *"connected\": true"* ]]; then
+        log "PASS" "Peer connected" "$GREEN"
+        json_add "peer_connected" "true"
+    else
+        log "FAIL" "Peer disconnected" "$RED"
+        json_add "peer_connected" "false"
+    fi
 }
 
 main() {
-    mkdir -p /opt/semperfix/state
     mkdir -p /opt/semperfix/logs
-    : > "$LOG"
-
-    log "INFO" "Mesh Status (Phoenix v2)" "$BLUE"
+    : > "$STATUS_LOG"
 
     json_init
+
+    log "INFO" "Phoenix Mesh Status (v2)" "$YELLOW"
     json_add "timestamp" "$(date -Iseconds)"
+    json_add "node_role" "$NODE_ROLE"
 
-    if [[ -f "$SUPERVISOR" ]]; then
-        json_add "handshake" "$(jq -r '.handshake_status' "$SUPERVISOR")"
-        json_add "verify" "$(jq -r '.verify_status' "$SUPERVISOR")"
-        json_add "activate" "$(jq -r '.activate_status' "$SUPERVISOR")"
-    else
-        json_add "handshake" "unknown"
-        json_add "verify" "unknown"
-        json_add "activate" "unknown"
-    fi
+    check_api
+    check_connections
 
-    if [[ -f "$STATUS" ]]; then
-        json_add "mesh_ok" "$(jq -r '.mesh_ok' "$STATUS")"
-        json_add "node_role" "$(jq -r '.node_role' "$STATUS")"
-        json_add "peer_target" "$(jq -r '.peer_target' "$STATUS")"
-    else
-        json_add "mesh_ok" "false"
-        json_add "node_role" "unknown"
-        json_add "peer_target" "unknown"
-    fi
-
-    if [[ -f "$HEARTBEAT" ]]; then
-        json_add "api_ok" "$(jq -r '.api_ok' "$HEARTBEAT")"
-        json_add "peer_connected" "$(jq -r '.peer_connected' "$HEARTBEAT")"
-        json_add "syncthing_ready" "$(jq -r '.syncthing_ready' "$HEARTBEAT")"
-        json_add "quic_ok" "$(jq -r '.quic_ok' "$HEARTBEAT")"
-    else
-        json_add "api_ok" "false"
-        json_add "peer_connected" "false"
-        json_add "syncthing_ready" "false"
-        json_add "quic_ok" "false"
-    fi
-
+    log "INFO" "Mesh status complete" "$GREEN"
     json_close
-    log "INFO" "Mesh status written to $OUT" "$GREEN"
 }
 
 main "$@"

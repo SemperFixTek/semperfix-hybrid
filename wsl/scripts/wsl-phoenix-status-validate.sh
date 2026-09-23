@@ -1,72 +1,46 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATUS="/opt/semperfix/state/mesh-status.json"
-OUT="/opt/semperfix/state/mesh-status-validate.json"
-LOG="/opt/semperfix/logs/mesh-status-validate.log"
+# ============================================================
+# Phoenix Status Validator — SemperFix Edition (v2)
+# Validates phoenix-status.json structure and required fields
+# ============================================================
 
-RED="\033[0;31m"; GREEN="\033[0;32m"; YELLOW="\033[1;33m"; BLUE="\033[0;34m"; NC="\033[0m"
+STATUS_FILE="/opt/semperfix/state/phoenix-status.json"
 
-log() {
-    echo -e "${3}[${1}]${NC} ${2}"
-    echo "[${1}] ${2}" >> "$LOG"
+fail() {
+    echo "[FAIL] $1"
+    exit 1
 }
 
-json_init() { echo "{" > "$OUT"; }
-json_add() {
-    local key="$1"
-    local value="$2"
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
-    echo "  \"${key}\": \"${value}\"," >> "$OUT"
-}
-json_close() {
-    sed -i '$ s/,$//' "$OUT"
-    echo "}" >> "$OUT"
+pass() {
+    echo "[PASS] $1"
 }
 
-main() {
-    mkdir -p /opt/semperfix/state
-    mkdir -p /opt/semperfix/logs
-    : > "$LOG"
+# ---------- Basic existence ----------
+[[ -f "$STATUS_FILE" ]] || fail "Status file missing"
 
-    log "INFO" "Mesh Status Validate (Phoenix v2)" "$BLUE"
+# ---------- JSON parse check ----------
+jq . "$STATUS_FILE" >/dev/null 2>&1 || fail "Invalid JSON format"
 
-    json_init
-    json_add "timestamp" "$(date -Iseconds)"
+# ---------- Required fields ----------
+required_fields=(
+    ".meta.version"
+    ".meta.timestamp"
+    ".node.role"
+    ".node.api_url"
+    ".node.peer_target"
+    ".health.api_ok"
+    ".health.peer_connected"
+    ".supervisor.handshake"
+    ".supervisor.verify"
+    ".supervisor.activate"
+)
 
-    if [[ ! -f "$STATUS" ]]; then
-        log "FAIL" "mesh-status.json missing" "$RED"
-        json_add "valid" "false"
-        json_add "reason" "missing_status_file"
-        json_close
-        exit 0
-    fi
+for field in "${required_fields[@]}"; do
+    value=$(jq -r "$field" "$STATUS_FILE")
+    [[ "$value" == "null" ]] && fail "Missing field: $field"
+done
 
-    local mesh_ok api_ok peer_connected syncthing_ready quic_ok
-
-    mesh_ok=$(jq -r '.mesh_ok' "$STATUS")
-    api_ok=$(jq -r '.api_ok' "$STATUS")
-    peer_connected=$(jq -r '.peer_connected' "$STATUS")
-    syncthing_ready=$(jq -r '.syncthing_ready' "$STATUS")
-    quic_ok=$(jq -r '.quic_ok' "$STATUS")
-
-    if [[ "$mesh_ok" == "true" ]]; then
-        json_add "valid" "true"
-        json_add "reason" "mesh_healthy"
-    else
-        json_add "valid" "false"
-        json_add "reason" "mesh_unhealthy"
-    fi
-
-    json_add "mesh_ok" "$mesh_ok"
-    json_add "api_ok" "$api_ok"
-    json_add "peer_connected" "$peer_connected"
-    json_add "syncthing_ready" "$syncthing_ready"
-    json_add "quic_ok" "$quic_ok"
-
-    json_close
-    log "INFO" "Mesh status validation written to $OUT" "$GREEN"
-}
-
-main "$@"
+pass "phoenix-status.json v2 validation OK"
+exit 0
