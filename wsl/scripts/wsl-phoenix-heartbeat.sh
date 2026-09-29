@@ -1,24 +1,19 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
-STATUS_FILE="/opt/semperfix/state/phoenix-status.json"
-HEARTBEAT_FILE="/opt/semperfix/state/phoenix-heartbeat.json"
-LOGFILE="/opt/semperfix/logs/phoenix-heartbeat.log"
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_load_config
 
-# ---------- Color Codes ----------
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
+
+HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
+LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
+
+mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 log() {
-    local level="$1"
-    local msg="$2"
-    local color="$3"
-
-    echo -e "${color}[${level}]${NC} ${msg}"
-    echo "[${level}] ${msg}" >> "$LOGFILE"
+    echo "[INFO] $1" | tee -a "$LOGFILE"
 }
 
 json_init() {
@@ -36,46 +31,73 @@ json_add() {
 }
 
 json_close() {
-    sed -i '$ s/,$//' "$HEARTBEAT_FILE"
-    echo "}" >> "$HEARTBEAT_FILE"
+    awk '
+    NR == 1 { print; next }
+    {
+        if (prev ~ /,$/) sub(/,$/, "", prev)
+        print prev
+        prev = $0
+    }
+    END { print prev }
+    ' "$HEARTBEAT_FILE" > "${HEARTBEAT_FILE}.tmp"
+
+    mv "${HEARTBEAT_FILE}.tmp" "$HEARTBEAT_FILE"
+}
+
+check_api() {
+    curl -s -o /dev/null -w "%{http_code}" \
+        -H "X-API-Key: $API_KEY" \
+        "$API_URL/system/status" 2>/dev/null
+}
+
+check_syncthing_ready() {
+    curl -s -H "X-API-Key: $API_KEY" "$API_URL/system/status" \
+        | jq -r '.myID != null' 2>/dev/null
+}
+
+check_peer_connected() {
+    jq -r '.connections | length > 0' "${LOG_DIR}/mesh-handshake.json" 2>/dev/null
+}
+
+check_quic() {
+    echo "probe" | nc -u -w1 -q1 "$PEER_IP" "$PEER_PORT" 2>/dev/null
+}
+
+check_mesh_ok() {
+    jq -r '
+        (.handshake_status == "pass")
+        and (.verify_status == "pass")
+        and (.activate_status == "pass")
+    ' "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null
 }
 
 main() {
-    mkdir -p /opt/semperfix/state
-    mkdir -p /opt/semperfix/logs
     : > "$LOGFILE"
+    log "Starting Phoenix v2 Heartbeat"
 
-    log "INFO" "Starting Phoenix v2 Heartbeat" "$BLUE"
+    local api_ok peer_connected syncthing_ready quic_ok mesh_ok
 
-    if [[ ! -f "$STATUS_FILE" ]]; then
-        log "FAIL" "Status file missing" "$RED"
-        exit 0
-    fi
+    api_ok=$(check_api || echo "false")
+    [[ "$api_ok" == "200" ]] && api_ok="true" || api_ok="false"
 
-    local api_ok
-    local peer_connected
-    local syncthing_ready
-    local quic_ok
-    local mesh_ok
+    peer_connected=$(check_peer_connected || echo "false")
+    syncthing_ready=$(check_syncthing_ready || echo "false")
 
-    api_ok=$(jq -r '.health.api_ok' "$STATUS_FILE")
-    peer_connected=$(jq -r '.health.peer_connected' "$STATUS_FILE")
-    syncthing_ready=$(jq -r '.health.syncthing_ready' "$STATUS_FILE")
-    quic_ok=$(jq -r '.health.quic_ok' "$STATUS_FILE")
-    mesh_ok=$(jq -r '.health.mesh_ok' "$STATUS_FILE")
+    quic_ok=$(check_quic || echo "")
+    [[ -n "$quic_ok" ]] && quic_ok="true" || quic_ok="false"
+
+    mesh_ok=$(check_mesh_ok || echo "false")
 
     json_init
-
     json_add "timestamp" "$(date -Iseconds)"
     json_add "api_ok" "$api_ok"
     json_add "peer_connected" "$peer_connected"
     json_add "syncthing_ready" "$syncthing_ready"
     json_add "quic_ok" "$quic_ok"
     json_add "mesh_ok" "$mesh_ok"
-
     json_close
 
-    log "INFO" "Heartbeat written to $HEARTBEAT_FILE" "$GREEN"
+    log "Heartbeat written to $HEARTBEAT_FILE"
 }
 
 main "$@"

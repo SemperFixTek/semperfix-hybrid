@@ -1,23 +1,29 @@
-
 {
-    "NodeRole": "MASTERZERO",
-    "ApiUrl": "http://192.168.1.241:8384/rest",
-    "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
-    "MeshEndpoint": "quic://10.10.10.1:22000",
-    "ClusterName": "SemperFix-Hybrid",
-    "MasterNode": "MASTERZERO",
-    "Nodes": [
-        {
-            "Name": "MASTERZERO",
-            "ApiUrl": "http://192.168.1.241:8384/rest",
-            "ApiKey": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
-            "MeshEndpoint": "quic://10.10.10.1:22000"
-        },
-        {
-            "Name": "SECONDARY",
-            "ApiUrl": "http://192.168.1.246:8384/rest",
-            "ApiKey": "XzawtiD7rsiiNP69XtSkXqd6Mb5M9LpY",
-            "MeshEndpoint": "quic://10.10.10.2:22000"
-        }
-    ]
+  "node": {
+    "role": "MASTERZERO", 
+    "hostname": "masterzero",
+    "state_dir": "/var/lib/semperfix/state",
+    "log_dir": "/opt/semperfix/logs"
+  },
+
+  "syncthing": {
+    "api_url": "http://192.168.1.241:8384/rest",
+    "api_key": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+    "peer_ip": "10.10.10.2",
+    "peer_port": 22000
+  },
+
+  "mesh": {
+    "handshake_script": "/opt/semperfix/scripts/wsl-mesh-handshake.sh",
+    "verify_script": "/opt/semperfix/scripts/wsl-mesh-verify.sh",
+    "activate_script": "/opt/semperfix/scripts/wsl-mesh-activate.sh"
+  },
+
+  "phoenix": {
+    "heartbeat_script": "/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh",
+    "status_write_script": "/opt/semperfix/scripts/wsl-phoenix-status-write.sh",
+    "supervisor_script": "/opt/semperfix/scripts/wsl-phoenix-supervisor.sh",
+    "failover_script": "/opt/semperfix/scripts/wsl-phoenix-failover.sh",
+    "descalate_script": "/opt/semperfix/scripts/wsl-phoenix-descalate.sh"
+  }
 }

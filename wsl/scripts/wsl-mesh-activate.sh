@@ -37,16 +37,15 @@ check_readiness() {
 
     echo "$status" >> "$LOGFILE"
 
-    if [[ "$status" == *"majorSyncing\": false"* ]]; then
+    if echo "$status" | jq -e '.majorSyncing == false' >/dev/null 2>&1; then
         log "PASS" "Syncthing ready for activation" "$GREEN"
         json_add "$JSON_OUT" "syncthing_ready" "true"
-        return 0
     else
         log "WARN" "Syncthing still syncing" "$YELLOW"
         json_add "$JSON_OUT" "syncthing_ready" "false"
-        return 0
     fi
 }
+
 
 activate_quic() {
     local target_ip="$1"

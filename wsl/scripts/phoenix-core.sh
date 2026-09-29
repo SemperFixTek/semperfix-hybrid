@@ -1,55 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ============================================================
-# Phoenix v2 — Core Module
-# Provides:
-# - Config loader
-# - Shared environment variables
-# - Unified error/logging helpers (optional expansion later)
-# ============================================================
+CONFIG_DIR="/opt/semperfix/config"
+CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
+CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
 
-CONFIG_FILE="/opt/semperfix/config/phoenix.conf"
-METADATA_FILE="/opt/semperfix/config/phoenix.json"
-
-phoenix_load_config() {
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        echo "[ERROR] Phoenix config file not found: $CONFIG_FILE"
-        exit 1
-    fi
-
-    if [[ ! -f "$METADATA_FILE" ]]; then
-        echo "[ERROR] Phoenix metadata file not found: $METADATA_FILE"
-        exit 1
-    fi
-
-    # Load shell config
-    source "$CONFIG_FILE"
-
-    # Load JSON metadata
-    API_URL=$(jq -r '.ApiUrl' "$METADATA_FILE")
-    API_KEY=$(jq -r '.ApiKey' "$METADATA_FILE")
-    NODE_ROLE=$(jq -r '.NodeRole' "$METADATA_FILE")
-    MESH_ENDPOINT=$(jq -r '.MeshEndpoint' "$METADATA_FILE")
-
-    if [[ -z "$API_URL" || -z "$API_KEY" ]]; then
-        echo "[ERROR] Phoenix metadata missing required fields (ApiUrl/ApiKey)"
-        exit 1
-    fi
-}
-
-
-# ---------- Optional Shared Logging (future expansion) ----------
-phoenix_log() {
-    local level="$1"
-    local msg="$2"
-    echo "[${level}] ${msg}"
-}
-
-# ---------- Optional Shared Error Handler ----------
-phoenix_error() {
-    local code="$1"
-    local msg="$2"
-    echo "[ERROR] (${code}) ${msg}"
+# -----------------------------
+# Load phoenix.conf (env vars)
+# -----------------------------
+if [[ -f "$CONFIG_CONF" ]]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_CONF"
+else
+    echo "[ERROR] Missing phoenix.conf at $CONFIG_CONF"
     exit 1
-}
+fi
+
+# -----------------------------
+# Load phoenix.json (structured)
+# -----------------------------
+if [[ -f "$CONFIG_JSON" ]]; then
+    NODE_ROLE=$(jq -r '.node.role' "$CONFIG_JSON")
+    HOSTNAME=$(jq -r '.node.hostname' "$CONFIG_JSON")
+
+    STATE_DIR=$(jq -r '.node.state_dir' "$CONFIG_JSON")
+    LOG_DIR=$(jq -r '.node.log_dir' "$CONFIG_JSON")
+
+    API_URL=$(jq -r '.syncthing.api_url' "$CONFIG_JSON")
+    API_KEY=$(jq -r '.syncthing.api_key' "$CONFIG_JSON")
+
+    PEER_IP=$(jq -r '.syncthing.peer_ip' "$CONFIG_JSON")
+    PEER_PORT=$(jq -r '.syncthing.peer_port' "$CONFIG_JSON")
+else
+    echo "[ERROR] Missing phoenix.json at $CONFIG_JSON"
+    exit 1
+fi
+
+# -----------------------------
+# Ensure directories exist
+# -----------------------------
+mkdir -p "$STATE_DIR" "$LOG_DIR"
+
+# -----------------------------
+# Export unified variables
+# -----------------------------
+export NODE_ROLE HOSTNAME
+export STATE_DIR LOG_DIR
+export API_URL API_KEY
+export PEER_IP PEER_PORT

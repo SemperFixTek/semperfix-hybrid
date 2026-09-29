@@ -9,9 +9,8 @@ $Tasks = @(
     "phoenix-heartbeat.xml",
     "phoenix-status-write.xml",
     "phoenix-supervisor.xml",
-    "phoenix-failover.xml",
-    "mesh-status.xml",
-    "phoenix-status-validate.xml"
+    "phoenix-failover.xml"
+    
 )
     
 foreach ($t in $Tasks) {

@@ -1,84 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HEARTBEAT_FILE="/opt/semperfix/state/phoenix-heartbeat.json"
-FAILOVER_FILE="/opt/semperfix/state/phoenix-failover.json"
-LOGFILE="/opt/semperfix/logs/phoenix-failover.log"
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_load_config
 
-# ---------- Color Codes ----------
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
+
+FAILOVER_FILE="${STATE_DIR}/phoenix-failover.json"
+HB_FILE="${STATE_DIR}/phoenix-heartbeat.json"
+LOGFILE="${LOG_DIR}/phoenix-failover.log"
+
+mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 log() {
-    local level="$1"
-    local msg="$2"
-    local color="$3"
-
-    echo -e "${color}[${level}]${NC} ${msg}"
-    echo "[${level}] ${msg}" >> "$LOGFILE"
+    echo "[INFO] $1" | tee -a "$LOGFILE"
 }
 
-json_init() {
-    echo "{" > "$FAILOVER_FILE"
+safe_bool() {
+    local file="$1"
+    local field="$2"
+    local val
+
+    val=$(jq -r "$field // \"false\"" "$file" 2>/dev/null || echo "false")
+    [[ "$val" == "true" ]] && echo "true" || echo "false"
 }
 
-json_add() {
-    local key="$1"
-    local value="$2"
+should_failover() {
+    local api_ok mesh_ok
 
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
+    api_ok=$(safe_bool "$HB_FILE" '.api_ok')
+    mesh_ok=$(safe_bool "$HB_FILE" '.mesh_ok')
 
-    echo "  \"${key}\": \"${value}\"," >> "$FAILOVER_FILE"
-}
-
-json_close() {
-    sed -i '$ s/,$//' "$FAILOVER_FILE"
-    echo "}" >> "$FAILOVER_FILE"
+    if [[ "$api_ok" == "false" || "$mesh_ok" == "false" ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
 }
 
 main() {
-    mkdir -p /opt/semperfix/state
-    mkdir -p /opt/semperfix/logs
     : > "$LOGFILE"
+    log "Starting Phoenix v2 Failover Check"
 
-    log "INFO" "Phoenix Failover (v2, heartbeat-aware)" "$BLUE"
+    local failover_needed
+    failover_needed=$(should_failover)
 
-    if [[ ! -f "$HEARTBEAT_FILE" ]]; then
-        log "FAIL" "Heartbeat file missing — cannot evaluate failover" "$RED"
-        exit 0
-    fi
+    cat > "$FAILOVER_FILE" <<EOF
+{
+  "timestamp": "$(date -Iseconds)",
+  "node_role": "$NODE_ROLE",
+  "failover_needed": $failover_needed
+}
+EOF
 
-    local mesh_ok
-    mesh_ok=$(jq -r '.mesh_ok' "$HEARTBEAT_FILE")
-
-    json_init
-    json_add "timestamp" "$(date -Iseconds)"
-    json_add "mesh_ok" "$mesh_ok"
-
-    if [[ "$mesh_ok" == "true" ]]; then
-        log "PASS" "Mesh healthy — no failover required" "$GREEN"
-        json_add "failover_required" "false"
-        json_close
-        exit 0
-    fi
-
-    log "WARN" "Mesh unhealthy or supervisor failed — failover required" "$YELLOW"
-    json_add "failover_required" "true"
-
-    # QUIC escalation packet
-    if echo "failover" | nc -u -w1 "${PEER_IP}" "${PEER_PORT}" &>/dev/null; then
-        log "PASS" "Failover packet sent" "$GREEN"
-        json_add "failover_packet" "sent"
-    else
-        log "FAIL" "Failover packet failed" "$RED"
-        json_add "failover_packet" "failed"
-    fi
-
-    json_close
+    log "Failover state written to $FAILOVER_FILE"
 }
 
 main "$@"

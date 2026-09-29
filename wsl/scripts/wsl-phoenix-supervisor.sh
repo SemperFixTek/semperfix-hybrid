@@ -1,47 +1,70 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load Phoenix Core
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_load_config
 
-SUPERVISOR_JSON="/opt/semperfix/state/phoenix-supervisor.json"
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
 
-# Run Handshake
-echo "[INFO] Running Phoenix Handshake"
-if /opt/semperfix/scripts/wsl-mesh-handshake.sh; then
-    HANDSHAKE_STATUS="pass"
-else
-    HANDSHAKE_STATUS="fail"
-fi
+SUP_FILE="${STATE_DIR}/phoenix-supervisor.json"
+LOGFILE="${LOG_DIR}/phoenix-supervisor.log"
 
-# Run Verify
-echo "[INFO] Running Phoenix Verify"
-if /opt/semperfix/scripts/wsl-mesh-verify.sh; then
-    VERIFY_STATUS="pass"
-else
-    VERIFY_STATUS="fail"
-fi
+mkdir -p "$STATE_DIR" "$LOG_DIR"
 
-# Run Activation
-echo "[INFO] Running Phoenix Activation"
-if /opt/semperfix/scripts/wsl-mesh-activate.sh; then
-    ACTIVATE_STATUS="pass"
-else
-    ACTIVATE_STATUS="fail"
-fi
+log() {
+    echo "[INFO] $1" | tee -a "$LOGFILE"
+}
 
-# Write Supervisor JSON
-mkdir -p /opt/semperfix/state
+run_handshake() {
+    /opt/semperfix/scripts/wsl-mesh-handshake.sh || return 1
+}
 
-cat <<EOF > "$SUPERVISOR_JSON"
+run_verify() {
+    /opt/semperfix/scripts/wsl-mesh-verify.sh || return 1
+}
+
+run_activate() {
+    /opt/semperfix/scripts/wsl-mesh-activate.sh || return 1
+}
+
+main() {
+    : > "$LOGFILE"
+    log "Starting Phoenix v2 Supervisor"
+
+    local handshake_status verify_status activate_status
+
+    if run_handshake; then
+        handshake_status="pass"
+    else
+        handshake_status="fail"
+    fi
+
+    if run_verify; then
+        verify_status="pass"
+    else
+        verify_status="fail"
+    fi
+
+    if run_activate; then
+        activate_status="pass"
+    else
+        activate_status="fail"
+    fi
+
+    cat > "$SUP_FILE" <<EOF
 {
-    "timestamp": "$(date -Iseconds)",
-    "handshake": "$HANDSHAKE_STATUS",
-    "verify": "$VERIFY_STATUS",
-    "activate": "$ACTIVATE_STATUS"
+  "timestamp": "$(date -Iseconds)",
+  "handshake_status": "$handshake_status",
+  "verify_status": "$verify_status",
+  "activate_status": "$activate_status",
+  "handshake": "$handshake_status",
+  "verify": "$verify_status",
+  "activate": "$activate_status"
 }
 EOF
 
-echo "[INFO] Supervisor complete"
-echo "[INFO] Status written to $SUPERVISOR_JSON"
+    log "Supervisor state written to $SUP_FILE"
+}
+
+main "$@"
