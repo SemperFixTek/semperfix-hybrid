@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source /opt/semperfix/scripts/phoenix-core.sh
+source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
 STATE_DIR="/var/lib/semperfix/state"
@@ -52,17 +53,20 @@ main() {
         activate_status="fail"
     fi
 
-    cat > "$SUP_FILE" <<EOF
-{
-  "timestamp": "$(date -Iseconds)",
-  "handshake_status": "$handshake_status",
-  "verify_status": "$verify_status",
-  "activate_status": "$activate_status",
-  "handshake": "$handshake_status",
-  "verify": "$verify_status",
-  "activate": "$activate_status"
-}
-EOF
+    # ---------- Unified JSON Writer ----------
+    json_init "$SUP_FILE"
+
+    json_set "$SUP_FILE" "timestamp" "$(date -Iseconds)"
+    json_set "$SUP_FILE" "handshake_status" "$handshake_status"
+    json_set "$SUP_FILE" "verify_status" "$verify_status"
+    json_set "$SUP_FILE" "activate_status" "$activate_status"
+
+    # Backward‑compatibility fields
+    json_set "$SUP_FILE" "handshake" "$handshake_status"
+    json_set "$SUP_FILE" "verify" "$verify_status"
+    json_set "$SUP_FILE" "activate" "$activate_status"
+
+    json_finalize "$SUP_FILE"
 
     log "Supervisor state written to $SUP_FILE"
 }

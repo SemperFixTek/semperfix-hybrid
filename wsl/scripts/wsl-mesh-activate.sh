@@ -24,8 +24,7 @@ log() {
 LOGFILE="/opt/semperfix/logs/mesh-activate.log"
 JSON_OUT="/opt/semperfix/logs/mesh-activate.json"
 
-# ... colors + log() unchanged ...
-
+# ---------- Syncthing Readiness ----------
 check_readiness() {
     local api_url="$1"
     local api_key="$2"
@@ -39,14 +38,14 @@ check_readiness() {
 
     if echo "$status" | jq -e '.majorSyncing == false' >/dev/null 2>&1; then
         log "PASS" "Syncthing ready for activation" "$GREEN"
-        json_add "$JSON_OUT" "syncthing_ready" "true"
+        json_set "$JSON_OUT" "syncthing_ready" "true"
     else
         log "WARN" "Syncthing still syncing" "$YELLOW"
-        json_add "$JSON_OUT" "syncthing_ready" "false"
+        json_set "$JSON_OUT" "syncthing_ready" "false"
     fi
 }
 
-
+# ---------- QUIC Activation ----------
 activate_quic() {
     local target_ip="$1"
     local target_port="$2"
@@ -55,15 +54,16 @@ activate_quic() {
 
     if echo "activate" | nc -u -w1 "${target_ip}" "${target_port}" &>/dev/null; then
         log "PASS" "QUIC activation packet sent" "$GREEN"
-        json_add "$JSON_OUT" "quic_activation" "sent"
+        json_set "$JSON_OUT" "quic_activation" "sent"
         return 0
     else
         log "FAIL" "QUIC activation failed" "$RED"
-        json_add "$JSON_OUT" "quic_activation" "failed"
+        json_set "$JSON_OUT" "quic_activation" "failed"
         return 0
     fi
 }
 
+# ---------- Post-Activation Peer Check ----------
 verify_peer_after_activation() {
     local api_url="$1"
     local api_key="$2"
@@ -77,15 +77,16 @@ verify_peer_after_activation() {
 
     if [[ "$matrix" == *"connected\": true"* ]]; then
         log "PASS" "Peer connected after activation" "$GREEN"
-        json_add "$JSON_OUT" "peer_connected_after_activation" "true"
+        json_set "$JSON_OUT" "peer_connected_after_activation" "true"
         return 0
     else
         log "FAIL" "Peer still disconnected after activation" "$RED"
-        json_add "$JSON_OUT" "peer_connected_after_activation" "false"
+        json_set "$JSON_OUT" "peer_connected_after_activation" "false"
         return 0
     fi
 }
 
+# ---------- Main ----------
 main() {
     mkdir -p /opt/semperfix/logs
     : > "$LOGFILE"
@@ -93,17 +94,18 @@ main() {
     json_init "$JSON_OUT"
 
     log "INFO" "Starting Phoenix Mesh Activation" "$YELLOW"
-    json_add "$JSON_OUT" "timestamp" "$(date -Iseconds)"
-    json_add "$JSON_OUT" "node_role" "$NODE_ROLE"
-    json_add "$JSON_OUT" "api_url" "$API_URL"
-    json_add "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
+
+    json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
+    json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
+    json_set "$JSON_OUT" "api_url" "$API_URL"
+    json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
     check_readiness "$API_URL" "$API_KEY"
     activate_quic "$PEER_IP" "$PEER_PORT"
     verify_peer_after_activation "$API_URL" "$API_KEY"
 
     log "INFO" "Mesh activation complete" "$GREEN"
-    json_close "$JSON_OUT"
+    json_finalize "$JSON_OUT"
 }
 
 main "$@"

@@ -2,6 +2,7 @@
 set -uo pipefail
 
 source /opt/semperfix/scripts/phoenix-core.sh
+source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
 STATE_DIR="/var/lib/semperfix/state"
@@ -16,34 +17,7 @@ log() {
     echo "[INFO] $1" | tee -a "$LOGFILE"
 }
 
-json_init() {
-    echo "{" > "$HEARTBEAT_FILE"
-}
-
-json_add() {
-    local key="$1"
-    local value="$2"
-
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
-
-    echo "  \"${key}\": \"${value}\"," >> "$HEARTBEAT_FILE"
-}
-
-json_close() {
-    awk '
-    NR == 1 { print; next }
-    {
-        if (prev ~ /,$/) sub(/,$/, "", prev)
-        print prev
-        prev = $0
-    }
-    END { print prev }
-    ' "$HEARTBEAT_FILE" > "${HEARTBEAT_FILE}.tmp"
-
-    mv "${HEARTBEAT_FILE}.tmp" "$HEARTBEAT_FILE"
-}
-
+# ---------- Health Checks ----------
 check_api() {
     curl -s -o /dev/null -w "%{http_code}" \
         -H "X-API-Key: $API_KEY" \
@@ -88,14 +62,17 @@ main() {
 
     mesh_ok=$(check_mesh_ok || echo "false")
 
-    json_init
-    json_add "timestamp" "$(date -Iseconds)"
-    json_add "api_ok" "$api_ok"
-    json_add "peer_connected" "$peer_connected"
-    json_add "syncthing_ready" "$syncthing_ready"
-    json_add "quic_ok" "$quic_ok"
-    json_add "mesh_ok" "$mesh_ok"
-    json_close
+    # ---------- Unified JSON Writer ----------
+    json_init "$HEARTBEAT_FILE"
+
+    json_set "$HEARTBEAT_FILE" "timestamp" "$(date -Iseconds)"
+    json_set "$HEARTBEAT_FILE" "api_ok" "$api_ok"
+    json_set "$HEARTBEAT_FILE" "peer_connected" "$peer_connected"
+    json_set "$HEARTBEAT_FILE" "syncthing_ready" "$syncthing_ready"
+    json_set "$HEARTBEAT_FILE" "quic_ok" "$quic_ok"
+    json_set "$HEARTBEAT_FILE" "mesh_ok" "$mesh_ok"
+
+    json_finalize "$HEARTBEAT_FILE"
 
     log "Heartbeat written to $HEARTBEAT_FILE"
 }

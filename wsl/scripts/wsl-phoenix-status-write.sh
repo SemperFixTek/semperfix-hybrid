@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source /opt/semperfix/scripts/phoenix-core.sh
+source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
 STATE_DIR="/var/lib/semperfix/state"
@@ -11,7 +12,11 @@ STATUS_FILE="${STATE_DIR}/phoenix-status.json"
 HB_JSON="${STATE_DIR}/phoenix-heartbeat.json"
 SUP_JSON="${STATE_DIR}/phoenix-supervisor.json"
 
-mkdir -p "$STATE_DIR"
+mkdir -p "$STATE_DIR" "$LOG_DIR"
+
+log() {
+    echo "[INFO] $1"
+}
 
 safe_bool() {
     local file="$1"
@@ -41,33 +46,40 @@ write_status() {
     quic_ok=$(safe_bool "$HB_JSON" '.quic_ok')
     mesh_ok=$(check_mesh_ok)
 
-    cat > "$STATUS_FILE" <<EOF
-{
-  "meta": {
-    "version": "2.0",
-    "generated_by": "phoenix-status-write",
-    "timestamp": "$timestamp"
-  },
-  "node": {
-    "role": "$NODE_ROLE",
-    "api_url": "$API_URL",
-    "peer_target": "${PEER_IP}:${PEER_PORT}"
-  },
-  "health": {
-    "api_ok": $api_ok,
-    "peer_connected": $peer_connected,
-    "syncthing_ready": $syncthing_ready,
-    "quic_ok": $quic_ok,
-    "mesh_ok": $mesh_ok
-  },
-  "supervisor": {
-    "handshake": "$(jq -r '.handshake // "unknown"' "$SUP_JSON" 2>/dev/null)",
-    "verify": "$(jq -r '.verify // "unknown"' "$SUP_JSON" 2>/dev/null)",
-    "activate": "$(jq -r '.activate // "unknown"' "$SUP_JSON" 2>/dev/null)"
-  }
-}
-EOF
+    # ---------- Unified JSON Writer ----------
+    json_init "$STATUS_FILE"
+
+    # ----- meta -----
+    json_set_raw "$STATUS_FILE" "meta" "$(jq -n \
+        --arg ts "$timestamp" \
+        '{version:"2.0", generated_by:"phoenix-status-write", timestamp:$ts}')"
+
+    # ----- node -----
+    json_set_raw "$STATUS_FILE" "node" "$(jq -n \
+        --arg role "$NODE_ROLE" \
+        --arg api "$API_URL" \
+        --arg peer "${PEER_IP}:${PEER_PORT}" \
+        '{role:$role, api_url:$api, peer_target:$peer}')"
+
+    # ----- health -----
+    json_set_raw "$STATUS_FILE" "health" "$(jq -n \
+        --argjson api_ok "$api_ok" \
+        --argjson peer_connected "$peer_connected" \
+        --argjson syncthing_ready "$syncthing_ready" \
+        --argjson quic_ok "$quic_ok" \
+        --argjson mesh_ok "$mesh_ok" \
+        '{api_ok:$api_ok, peer_connected:$peer_connected, syncthing_ready:$syncthing_ready, quic_ok:$quic_ok, mesh_ok:$mesh_ok}')"
+
+    # ----- supervisor -----
+    json_set_raw "$STATUS_FILE" "supervisor" "$(jq -n \
+        --arg handshake "$(jq -r '.handshake // "unknown"' "$SUP_JSON")" \
+        --arg verify "$(jq -r '.verify // "unknown"' "$SUP_JSON")" \
+        --arg activate "$(jq -r '.activate // "unknown"' "$SUP_JSON")" \
+        '{handshake:$handshake, verify:$verify, activate:$activate}')"
+
+    json_finalize "$STATUS_FILE"
+
+    log "Phoenix status written to $STATUS_FILE"
 }
 
 write_status
-echo "[INFO] Phoenix status written to $STATUS_FILE"

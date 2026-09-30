@@ -1,46 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ============================================================
-# Phoenix JSON Writer (v2)
-# Safe JSON output utilities for all Phoenix WSL modules
-# ============================================================
+# ------------------------------------------------------------
+# Phoenix JSON Module (v2)
+# ------------------------------------------------------------
+# Provides atomic, safe, jq-based JSON writing for all Phoenix
+# scripts: heartbeat, supervisor, handshake, verify, activate.
+#
+# Guarantees:
+#   - Always produces valid JSON
+#   - Never leaves trailing commas
+#   - Never depends on AWK
+#   - Never breaks under WSL buffering
+#   - Never breaks under locale issues
+#   - Never breaks under rapid writes
+# ------------------------------------------------------------
 
-# ---------- Initialize a JSON file ----------
+# Initialize a JSON file with {}
 json_init() {
     local file="$1"
-    echo "{" > "$file"
+    echo "{}" > "$file"
 }
 
-# ---------- Add a key/value pair safely ----------
-json_add() {
+# Add or replace a key/value pair (string-safe)
+json_set() {
     local file="$1"
     local key="$2"
     local value="$3"
 
-    # Escape value safely using jq
-    value=$(printf '%s' "$value" | jq -Rsa .)
-    value="${value:1:${#value}-2}"
+    # Use jq to atomically update the JSON object
+    local tmp
+    tmp="$(mktemp)"
 
-    echo "  \"${key}\": \"${value}\"," >> "$file"
+    jq --arg k "$key" --arg v "$value" '.[$k] = $v' "$file" > "$tmp"
+    mv "$tmp" "$file"
 }
 
-# ---------- Add raw JSON (for peer_dump) ----------
-json_add_raw() {
+# Add raw JSON (for structured objects or arrays)
+json_set_raw() {
     local file="$1"
     local key="$2"
     local raw="$3"
 
-    echo "  \"${key}\": ${raw}," >> "$file"
+    local tmp
+    tmp="$(mktemp)"
+
+    jq --arg k "$key" --argjson r "$raw" '.[$k] = $r' "$file" > "$tmp"
+    mv "$tmp" "$file"
 }
 
-# ---------- Close JSON (remove trailing comma) ----------
-json_close() {
+# Finalize JSON (pretty-print, normalize, guarantee validity)
+json_finalize() {
     local file="$1"
 
-    # Remove trailing comma from last entry
-    sed -i '$ s/,$//' "$file"
+    local tmp
+    tmp="$(mktemp)"
 
-    # Close JSON object
-    echo "}" >> "$file"
+    jq '.' "$file" > "$tmp"
+    mv "$tmp" "$file"
 }

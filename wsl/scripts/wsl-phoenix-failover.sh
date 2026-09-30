@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source /opt/semperfix/scripts/phoenix-core.sh
+source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
 STATE_DIR="/var/lib/semperfix/state"
@@ -46,13 +47,14 @@ main() {
     local failover_needed
     failover_needed=$(should_failover)
 
-    cat > "$FAILOVER_FILE" <<EOF
-{
-  "timestamp": "$(date -Iseconds)",
-  "node_role": "$NODE_ROLE",
-  "failover_needed": $failover_needed
-}
-EOF
+    # ---------- Unified JSON Writer ----------
+    json_init "$FAILOVER_FILE"
+
+    json_set "$FAILOVER_FILE" "timestamp" "$(date -Iseconds)"
+    json_set "$FAILOVER_FILE" "node_role" "$NODE_ROLE"
+    json_set_raw "$FAILOVER_FILE" "failover_needed" "$failover_needed"
+
+    json_finalize "$FAILOVER_FILE"
 
     log "Failover state written to $FAILOVER_FILE"
 }

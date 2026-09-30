@@ -21,14 +21,10 @@ log() {
     echo "[${level}] ${msg}" >> "$LOGFILE"
 }
 
-source /opt/semperfix/scripts/phoenix-json.sh
 LOGFILE="/opt/semperfix/logs/mesh-verify.log"
 JSON_OUT="/opt/semperfix/logs/mesh-verify.json"
 
-json_add "$JSON_OUT" "key" "value"
-
-# ... colors + log() unchanged ...
-
+# ---------- Connection Matrix ----------
 verify_connections() {
     local api_url="$1"
     local api_key="$2"
@@ -42,15 +38,16 @@ verify_connections() {
 
     if [[ "$matrix" == *"connected\": true"* ]]; then
         log "PASS" "At least one peer is connected" "$GREEN"
-        json_add "$JSON_OUT" "peer_connected" "true"
+        json_set "$JSON_OUT" "peer_connected" "true"
         return 0
     else
         log "FAIL" "No peers connected" "$RED"
-        json_add "$JSON_OUT" "peer_connected" "false"
+        json_set "$JSON_OUT" "peer_connected" "false"
         return 1
     fi
 }
 
+# ---------- Device ID Check ----------
 verify_device_ids() {
     local api_url="$1"
     local api_key="$2"
@@ -64,15 +61,16 @@ verify_device_ids() {
 
     if [[ "$devices" == *"myID"* ]]; then
         log "PASS" "Device ID present" "$GREEN"
-        json_add "$JSON_OUT" "device_id_present" "true"
+        json_set "$JSON_OUT" "device_id_present" "true"
         return 0
     else
         log "FAIL" "Device ID missing" "$RED"
-        json_add "$JSON_OUT" "device_id_present" "false"
+        json_set "$JSON_OUT" "device_id_present" "false"
         return 1
     fi
 }
 
+# ---------- Folder Health ----------
 verify_folders() {
     local api_url="$1"
     local api_key="$2"
@@ -86,16 +84,16 @@ verify_folders() {
 
     if [[ "$folders" == *"state\": \"idle\""* ]]; then
         log "PASS" "Folders idle and healthy" "$GREEN"
-        json_add "$JSON_OUT" "folder_health" "healthy"
+        json_set "$JSON_OUT" "folder_health" "healthy"
         return 0
     else
         log "WARN" "Folders not idle" "$YELLOW"
-        json_add "$JSON_OUT" "folder_health" "not_idle"
-        return 0   # ← FIX: do NOT return 1
+        json_set "$JSON_OUT" "folder_health" "not_idle"
+        return 0   # correct: not_idle is not a failure
     fi
 }
 
-
+# ---------- Main ----------
 main() {
     mkdir -p /opt/semperfix/logs
     : > "$LOGFILE"
@@ -103,16 +101,17 @@ main() {
     json_init "$JSON_OUT"
 
     log "INFO" "Starting Phoenix Mesh Verify" "$YELLOW"
-    json_add "$JSON_OUT" "timestamp" "$(date -Iseconds)"
-    json_add "$JSON_OUT" "node_role" "$NODE_ROLE"
-    json_add "$JSON_OUT" "api_url" "$API_URL"
+
+    json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
+    json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
+    json_set "$JSON_OUT" "api_url" "$API_URL"
 
     verify_connections "$API_URL" "$API_KEY"
     verify_device_ids "$API_URL" "$API_KEY"
     verify_folders "$API_URL" "$API_KEY"
 
     log "INFO" "Mesh verification complete" "$GREEN"
-    json_close "$JSON_OUT"
+    json_finalize "$JSON_OUT"
 }
 
 main "$@"

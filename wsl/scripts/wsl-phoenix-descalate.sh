@@ -15,8 +15,19 @@ log() {
 main() {
     log "Phoenix v2 Descalate — log snapshot"
 
-    [[ -f "$HB_LOG" ]] && tail -n 20 "$HB_LOG" || log "No heartbeat log found"
-    [[ -f "$SUP_LOG" ]] && tail -n 20 "$SUP_LOG" || log "No supervisor log found"
+    if [[ -f "$HB_LOG" ]]; then
+        log "Heartbeat log (last 20 lines):"
+        tail -n 20 "$HB_LOG"
+    else
+        log "No heartbeat log found"
+    fi
+
+    if [[ -f "$SUP_LOG" ]]; then
+        log "Supervisor log (last 20 lines):"
+        tail -n 20 "$SUP_LOG"
+    else
+        log "No supervisor log found"
+    fi
 }
 
 main "$@"

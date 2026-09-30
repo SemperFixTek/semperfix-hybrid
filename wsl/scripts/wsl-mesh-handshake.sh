@@ -5,6 +5,9 @@ source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
+
 # ---------- Color Codes ----------
 RED="\033[0;31m"
 GREEN="\033[0;32m"
@@ -22,11 +25,10 @@ log() {
     echo "[${level}] ${msg}" >> "$LOGFILE"
 }
 
-LOGFILE="/opt/semperfix/logs/mesh-handshake.log"
-JSON_OUT="/opt/semperfix/logs/mesh-handshake.json"
+LOGFILE="${LOG_DIR}/mesh-handshake.log"
+JSON_OUT="${LOG_DIR}/mesh-handshake.json"
 
-# ... colors + log() unchanged ...
-
+# ---------- QUIC Check ----------
 check_quic() {
     local target_ip="$1"
     local target_port="$2"
@@ -35,15 +37,16 @@ check_quic() {
 
     if nc -zvu "${target_ip}" "${target_port}" &>/dev/null; then
         log "PASS" "QUIC reachable" "$GREEN"
-        json_add "$JSON_OUT" "quic_status" "reachable"
+        json_set "$JSON_OUT" "quic_status" "reachable"
         return 0
     else
         log "FAIL" "QUIC unreachable" "$RED"
-        json_add "$JSON_OUT" "quic_status" "unreachable"
+        json_set "$JSON_OUT" "quic_status" "unreachable"
         return 1
     fi
 }
 
+# ---------- Syncthing API Check ----------
 check_syncthing_api() {
     local api_url="$1"
     local api_key="$2"
@@ -55,15 +58,16 @@ check_syncthing_api() {
 
     if [[ "$status" == *"pong"* ]]; then
         log "PASS" "Syncthing API reachable" "$GREEN"
-        json_add "$JSON_OUT" "syncthing_api" "reachable"
+        json_set "$JSON_OUT" "syncthing_api" "reachable"
         return 0
     else
         log "FAIL" "Syncthing API unreachable" "$RED"
-        json_add "$JSON_OUT" "syncthing_api" "unreachable"
+        json_set "$JSON_OUT" "syncthing_api" "unreachable"
         return 1
     fi
 }
 
+# ---------- Peer Dump ----------
 dump_peers() {
     local api_url="$1"
     local api_key="$2"
@@ -74,27 +78,30 @@ dump_peers() {
     peers=$(curl -s -H "X-API-Key: ${api_key}" "${api_url}/system/connections")
 
     echo "$peers" >> "$LOGFILE"
-    json_add_raw "$JSON_OUT" "peer_dump" "$peers"
+    json_set_raw "$JSON_OUT" "peer_dump" "$peers"
 }
 
+# ---------- Main ----------
 main() {
-    mkdir -p /opt/semperfix/logs
+    mkdir -p "$LOG_DIR"
     : > "$LOGFILE"
 
     json_init "$JSON_OUT"
 
     log "INFO" "Starting Phoenix Mesh Handshake" "$YELLOW"
-    json_add "$JSON_OUT" "timestamp" "$(date -Iseconds)"
-    json_add "$JSON_OUT" "node_role" "$NODE_ROLE"
-    json_add "$JSON_OUT" "api_url" "$API_URL"
-    json_add "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
+
+    json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
+    json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
+    json_set "$JSON_OUT" "api_url" "$API_URL"
+    json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
     check_syncthing_api "$API_URL" "$API_KEY"
     check_quic "$PEER_IP" "$PEER_PORT"
     dump_peers "$API_URL" "$API_KEY"
 
     log "INFO" "Handshake diagnostics complete" "$GREEN"
-    json_close "$JSON_OUT"
+
+    json_finalize "$JSON_OUT"
 }
 
 main "$@"

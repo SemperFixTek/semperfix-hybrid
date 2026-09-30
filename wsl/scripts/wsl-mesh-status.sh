@@ -6,6 +6,7 @@ set -euo pipefail
 # ============================================================
 
 source /opt/semperfix/scripts/phoenix-core.sh
+source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_load_config
 
 STATUS_LOG="/opt/semperfix/logs/mesh-status.log"
@@ -22,23 +23,16 @@ log() {
     echo "[${1}] ${2}" >> "$STATUS_LOG"
 }
 
-json_init() { echo "{" > "$STATUS_JSON"; }
-json_add() { echo "  \"$1\": \"$2\"," >> "$STATUS_JSON"; }
-json_close() {
-    sed -i '$ s/,$//' "$STATUS_JSON"
-    echo "}" >> "$STATUS_JSON"
-}
-
 check_api() {
     local pong
     pong=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/ping" || echo "error")
 
     if [[ "$pong" == *"pong"* ]]; then
         log "PASS" "Syncthing API reachable" "$GREEN"
-        json_add "api_ok" "true"
+        json_set "$STATUS_JSON" "api_ok" "true"
     else
         log "FAIL" "Syncthing API unreachable" "$RED"
-        json_add "api_ok" "false"
+        json_set "$STATUS_JSON" "api_ok" "false"
     fi
 }
 
@@ -50,10 +44,10 @@ check_connections() {
 
     if [[ "$matrix" == *"connected\": true"* ]]; then
         log "PASS" "Peer connected" "$GREEN"
-        json_add "peer_connected" "true"
+        json_set "$STATUS_JSON" "peer_connected" "true"
     else
         log "FAIL" "Peer disconnected" "$RED"
-        json_add "peer_connected" "false"
+        json_set "$STATUS_JSON" "peer_connected" "false"
     fi
 }
 
@@ -61,17 +55,17 @@ main() {
     mkdir -p /opt/semperfix/logs
     : > "$STATUS_LOG"
 
-    json_init
+    json_init "$STATUS_JSON"
 
     log "INFO" "Phoenix Mesh Status (v2)" "$YELLOW"
-    json_add "timestamp" "$(date -Iseconds)"
-    json_add "node_role" "$NODE_ROLE"
+    json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
+    json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
 
     check_api
     check_connections
 
     log "INFO" "Mesh status complete" "$GREEN"
-    json_close
+    json_finalize "$STATUS_JSON"
 }
 
 main "$@"
