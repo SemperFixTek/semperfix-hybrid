@@ -34,7 +34,7 @@ check_peer_connected() {
 }
 
 check_quic() {
-    echo "probe" | nc -u -w1 -q1 "$PEER_IP" "$PEER_PORT" 2>/dev/null
+    echo "probe" | nc -u -w1 -q1 "$PEER_IP" "$PHOENIX_QUIC_PORT" 2>/dev/null
 }
 
 check_mesh_ok() {

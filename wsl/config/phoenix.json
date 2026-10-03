@@ -1,15 +1,15 @@
 {
   "node": {
-    "role": "MASTERZERO", 
-    "hostname": "masterzero",
+    "role": "SECONDARY", 
+    "hostname": "secondary",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs"
   },
 
   "syncthing": {
-    "api_url": "http://192.168.1.241:8384/rest",
+    "api_url": "http://192.168.1.101:8384/rest",
     "api_key": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
-    "peer_ip": "10.10.10.2",
+    "peer_ip": "10.10.10.1",
     "peer_port": 22000
   },
 
@@ -20,6 +20,7 @@
   },
 
   "phoenix": {
+    "quic_port": 22001,
     "heartbeat_script": "/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh",
     "status_write_script": "/opt/semperfix/scripts/wsl-phoenix-status-write.sh",
     "supervisor_script": "/opt/semperfix/scripts/wsl-phoenix-supervisor.sh",

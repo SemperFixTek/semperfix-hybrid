@@ -4,6 +4,8 @@ set -euo pipefail
 CONFIG_DIR="/opt/semperfix/config"
 CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
 CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
+PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // 22001' "$CONFIG_JSON")
+
 
 phoenix_error() {
     local message="$1"
@@ -79,6 +81,7 @@ phoenix_load_config() {
     export API_URL API_KEY
     export PEER_IP PEER_PORT
     export PHOENIX_DEBUG
+    export PHOENIX_QUIC_PORT
 }
 
 phoenix_init() {
