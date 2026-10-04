@@ -24,7 +24,7 @@ fi
 # ---------------------------------------------------------
 # 2. Ensure static IP is present (WSL sometimes drops it)
 # ---------------------------------------------------------
-EXPECTED_IP="${PHOENIX_LAN_IP:-192.168.1.102}"
+EXPECTED_IP="${PHOENIX_LAN_IP:-192.168.1.101}"
 CURRENT_IP=$(ip -4 addr show "$IFACE" | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || true)
 
 if [[ "$CURRENT_IP" != "$EXPECTED_IP" ]]; then
@@ -86,15 +86,15 @@ log "DNS stabilized."
 # 7. Ensure WSL2 network persistence (WSL resets routes)
 # ---------------------------------------------------------
 if grep -q "WSL" /proc/version; then
-    log "WSL detected — applying persistence patch..."
+    log "WSL detected — verifying wsl.conf persistence..."
 
-    sudo bash -c "cat >/etc/wsl.conf" <<EOF
-[network]
-generateResolvConf=false
-EOF
+    if ! grep -q "systemd=true" /etc/wsl.conf; then
+        log "systemd=true missing — NOT modifying wsl.conf due to protection policy."
+    fi
 
     sudo bash -c "echo 'nameserver 1.1.1.1' >/etc/resolv.conf"
-    log "WSL network persistence applied."
+    log "WSL DNS persistence applied."
 fi
+
 
 log "SemperFix Linux Normalizer complete."

@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Phoenix v2 Standard Environment Header
+umask 002
+
+# Ensure consistent locale + predictable JSON behavior
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# Ensure logs and state directories exist
+mkdir -p /var/lib/semperfix/state
+mkdir -p /opt/semperfix/logs
+
+# Safety: prevent Windows CRLF issues
+dos2unix "$0" 2>/dev/null || true
+
+
 # ============================================================
 # Phoenix Mesh Status — SemperFix Edition (v2)
 # ============================================================
