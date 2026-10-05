@@ -1,9 +1,9 @@
 # Phoenix v2 — Failover Engine
 $ErrorActionPreference = "Stop"
 
-$statusPath    = "C:\SemperFix\ConfigBackup\phoenix-status.json"
-$heartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
-$failoverPath  = "C:\SemperFix\ConfigBackup\phoenix-failover.json"
+$statusPath    = "C:\SemperFix\Logs\phoenix-status.json"
+$heartbeatPath = "C:\SemperFix\Logs\phoenix-heartbeat.json"
+$failoverPath  = "C:\SemperFix\Logs\phoenix-failover.json"
 
 $StatusOK    = $false
 $HeartbeatOK = $false

@@ -1,6 +1,7 @@
-
-{
-    "NodeRole":  "SECONDARY",
-    "ApiUrl":  "192.168.1.246:8384",
-    "ApiKey":  "XzawtiD7rsiiNP69XtSkXqd6Mb5M9LpY"
+﻿{
+    "NodeRole":  "MASTERZERO",
+    "ApiUrl":  "http://192.168.1.102:8384",
+    "ApiKey":  "XzawtiD7rsiiNP69XtSkXqd6Mb5M9LpY",
+    "MeshEndpoint": "quic://192.168.1.102:22000"
+    
 }

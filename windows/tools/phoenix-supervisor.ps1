@@ -67,7 +67,7 @@ catch {
 # ------------------------------------------------------------
 # Write supervisor status JSON
 # ------------------------------------------------------------
-$statusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$statusPath = "C:\SemperFix\Logs\phoenix-status.json"
 
 $result = [ordered]@{
     SupervisorOK = ($ApiOK -and $StatusOK)

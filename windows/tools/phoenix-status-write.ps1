@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 
 $configPath = "C:\SemperFix\Phoenix\phoenix.json"
-$statusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$statusPath = "C:\SemperFix\Logs\phoenix-status.json"
 
 $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
 

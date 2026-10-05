@@ -1,7 +1,7 @@
 # Phoenix v2 — Status Validator
 $ErrorActionPreference = "Stop"
 
-$statusPath = "C:\SemperFix\ConfigBackup\phoenix-status.json"
+$statusPath = "C:\SemperFix\Logs\phoenix-status.json"
 
 if (-not (Test-Path $statusPath)) {
     Write-Output '{"Valid":false,"Reason":"Missing phoenix-status.json"}'

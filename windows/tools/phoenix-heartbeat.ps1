@@ -1,7 +1,7 @@
 # Phoenix v2 — Heartbeat
 $ErrorActionPreference = "Stop"
 
-$HeartbeatPath = "C:\SemperFix\ConfigBackup\phoenix-heartbeat.json"
+$HeartbeatPath = "C:\SemperFix\Logs\phoenix-heartbeat.json"
 
 $result = [ordered]@{
     Alive     = $true
