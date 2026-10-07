@@ -41,7 +41,7 @@ log() {
 check_api() {
     local pong
     pong=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/ping" || echo "error")
-
+    log "pong = $pong" "DEBUG" "$BLUE"
     if [[ "$pong" == *"pong"* ]]; then
         log "PASS" "Syncthing API reachable" "$GREEN"
         json_set "$STATUS_JSON" "api_ok" "true"
@@ -72,15 +72,48 @@ main() {
 
     json_init "$STATUS_JSON"
 
-    log "INFO" "Phoenix Mesh Status (v2)" "$YELLOW"
+    log "INFO" "Phoenix Mesh Status (v2) — role: ${NODE_ROLE}" "$YELLOW"
+
     json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
 
-    check_api
-    check_connections
+    case "$NODE_ROLE" in
+
+        MASTERZERO)
+            log "INFO" "MASTERZERO performing full mesh status check" "$BLUE"
+
+            check_api
+            check_connections
+
+            ;;
+
+        SECONDARY)
+            log "INFO" "SECONDARY performing full mesh status check" "$BLUE"
+
+            check_api
+            check_connections
+
+            ;;
+
+        OFFSITE)
+            log "INFO" "OFFSITE performing limited mesh status check" "$BLUE"
+
+            # OFFSITE is not part of the QUIC mesh
+            check_api
+
+            json_set "$STATUS_JSON" "peer_connected" "not_applicable"
+
+            ;;
+
+        *)
+            log "FAIL" "Unknown node role: ${NODE_ROLE}" "$RED"
+            json_set "$STATUS_JSON" "error" "invalid_node_role"
+            ;;
+    esac
 
     log "INFO" "Mesh status complete" "$GREEN"
     json_finalize "$STATUS_JSON"
 }
+
 
 main "$@"

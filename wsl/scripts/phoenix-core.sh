@@ -19,7 +19,7 @@ dos2unix "$0" 2>/dev/null || true
 CONFIG_DIR="/opt/semperfix/config"
 CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
 CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
-PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // 22001' "$CONFIG_JSON")
+#PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // 22001' "$CONFIG_JSON")
 
 
 phoenix_error() {
@@ -60,6 +60,15 @@ phoenix_load_config() {
     # ---------- Load phoenix.json ----------
     if [[ -f "$CONFIG_JSON" ]]; then
         NODE_ROLE=$(jq -r '.node.role // empty' "$CONFIG_JSON")
+
+        case "$NODE_ROLE" in
+            MASTERZERO|SECONDARY|OFFSITE)
+                ;;
+            *)
+                phoenix_error "Invalid node.role in phoenix.json: ${NODE_ROLE}"
+                ;;
+        esac
+
         HOSTNAME=$(jq -r '.node.hostname // empty' "$CONFIG_JSON")
 
         STATE_DIR=$(jq -r '.node.state_dir // empty' "$CONFIG_JSON")
@@ -67,9 +76,16 @@ phoenix_load_config() {
 
         API_URL=$(jq -r '.syncthing.api_url // empty' "$CONFIG_JSON")
         API_KEY=$(jq -r '.syncthing.api_key // empty' "$CONFIG_JSON")
+        NODE_IP=$(jq -r '.node.node_ip // empty' "$CONFIG_JSON")
+
+            if ! printf '%s\n' "$NODE_IP" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+                phoenix_error "node.node_ip is not a valid IPv4 address: $NODE_IP"
+            fi
 
         PEER_IP=$(jq -r '.syncthing.peer_ip // empty' "$CONFIG_JSON")
         PEER_PORT=$(jq -r '.syncthing.peer_port // empty' "$CONFIG_JSON")
+
+        PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // empty' "$CONFIG_JSON")
     else
         phoenix_error "Missing phoenix.json at $CONFIG_JSON"
     fi
@@ -77,21 +93,26 @@ phoenix_load_config() {
     # ---------- Validate required fields ----------
     [[ -z "$NODE_ROLE" ]] && phoenix_error "Missing node.role in phoenix.json"
     [[ -z "$HOSTNAME" ]] && phoenix_error "Missing node.hostname in phoenix.json"
+    [[ -z "$NODE_IP" ]] && phoenix_error "Missing node.node_ip in phoenix.json"
 
     [[ -z "$STATE_DIR" ]] && phoenix_error "Missing node.state_dir in phoenix.json"
     [[ -z "$LOG_DIR" ]] && phoenix_error "Missing node.log_dir in phoenix.json"
 
     [[ -z "$API_URL" ]] && phoenix_error "Missing syncthing.api_url in phoenix.json"
     [[ -z "$API_KEY" ]] && phoenix_error "Missing syncthing.api_key in phoenix.json"
+    
 
     [[ -z "$PEER_IP" ]] && phoenix_error "Missing syncthing.peer_ip in phoenix.json"
     [[ -z "$PEER_PORT" ]] && phoenix_error "Missing syncthing.peer_port in phoenix.json"
+
+    [[ -z "$PHOENIX_QUIC_PORT" ]] && phoenix_error "Missing phoenix.quic_port in phoenix.json"
 
     # ---------- Ensure directories exist ----------
     mkdir -p "$STATE_DIR" "$LOG_DIR"
 
     # ---------- Export unified variables ----------
     export NODE_ROLE HOSTNAME
+    export NODE_IP
     export STATE_DIR LOG_DIR
     export API_URL API_KEY
     export PEER_IP PEER_PORT

@@ -115,18 +115,49 @@ main() {
 
     json_init "$JSON_OUT"
 
-    log "INFO" "Starting Phoenix Mesh Verify" "$YELLOW"
+    log "INFO" "Starting Phoenix Mesh Verify for role: ${NODE_ROLE}" "$YELLOW"
 
     json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
     json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
     json_set "$JSON_OUT" "api_url" "$API_URL"
 
-    verify_connections "$API_URL" "$API_KEY"
-    verify_device_ids "$API_URL" "$API_KEY"
-    verify_folders "$API_URL" "$API_KEY"
+    case "$NODE_ROLE" in
+
+        MASTERZERO)
+            log "INFO" "MASTERZERO performing full mesh verification" "$BLUE"
+
+            verify_connections "$API_URL" "$API_KEY"
+            verify_device_ids "$API_URL" "$API_KEY"
+            verify_folders "$API_URL" "$API_KEY"
+            ;;
+
+        SECONDARY)
+            log "INFO" "SECONDARY performing full mesh verification" "$BLUE"
+
+            verify_connections "$API_URL" "$API_KEY"
+            verify_device_ids "$API_URL" "$API_KEY"
+            verify_folders "$API_URL" "$API_KEY"
+            ;;
+
+        OFFSITE)
+            log "INFO" "OFFSITE performing limited mesh verification" "$BLUE"
+
+            # OFFSITE does NOT participate in QUIC mesh or folder sync
+            verify_device_ids "$API_URL" "$API_KEY"
+
+            json_set "$JSON_OUT" "peer_connected" "not_applicable"
+            json_set "$JSON_OUT" "folder_health" "not_applicable"
+            ;;
+
+        *)
+            log "FAIL" "Unknown node role: ${NODE_ROLE}" "$RED"
+            json_set "$JSON_OUT" "error" "invalid_node_role"
+            ;;
+    esac
 
     log "INFO" "Mesh verification complete" "$GREEN"
     json_finalize "$JSON_OUT"
 }
+
 
 main "$@"

@@ -103,20 +103,55 @@ main() {
 
     json_init "$JSON_OUT"
 
-    log "INFO" "Starting Phoenix Mesh Handshake" "$YELLOW"
+    log "INFO" "Starting Phoenix Mesh Handshake for role: ${NODE_ROLE}" "$YELLOW"
 
     json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
     json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
     json_set "$JSON_OUT" "api_url" "$API_URL"
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
-    check_syncthing_api "$API_URL" "$API_KEY"
-    check_quic "$PEER_IP" "$PEER_PORT"
-    dump_peers "$API_URL" "$API_KEY"
+    case "$NODE_ROLE" in
+
+        MASTERZERO)
+            log "INFO" "MASTERZERO initiating full mesh handshake" "$BLUE"
+
+            check_syncthing_api "$API_URL" "$API_KEY"
+            check_quic "$PEER_IP" "$PEER_PORT"
+            dump_peers "$API_URL" "$API_KEY"
+
+            ;;
+
+        SECONDARY)
+            log "INFO" "SECONDARY performing responder-side diagnostics" "$BLUE"
+
+            # SECONDARY does NOT probe QUIC — responder handles that
+            check_syncthing_api "$API_URL" "$API_KEY"
+            dump_peers "$API_URL" "$API_KEY"
+
+            json_set "$JSON_OUT" "quic_status" "handled_by_responder"
+
+            ;;
+
+        OFFSITE)
+            log "INFO" "OFFSITE performing observer-only handshake" "$BLUE"
+
+            # OFFSITE does NOT probe QUIC and does NOT dump peers
+            check_syncthing_api "$API_URL" "$API_KEY"
+
+            json_set "$JSON_OUT" "quic_status" "not_applicable"
+            json_set "$JSON_OUT" "peer_dump" "not_applicable"
+
+            ;;
+
+        *)
+            log "FAIL" "Unknown node role: ${NODE_ROLE}" "$RED"
+            json_set "$JSON_OUT" "error" "invalid_node_role"
+            ;;
+    esac
 
     log "INFO" "Handshake diagnostics complete" "$GREEN"
-
     json_finalize "$JSON_OUT"
 }
+
 
 main "$@"

@@ -57,21 +57,44 @@ should_failover() {
 
 main() {
     : > "$LOGFILE"
-    log "Starting Phoenix v2 Failover Check"
+    log "Starting Phoenix v2 Failover Check for role: ${NODE_ROLE}"
 
-    local failover_needed
-    failover_needed=$(should_failover)
-
-    # ---------- Unified JSON Writer ----------
     json_init "$FAILOVER_FILE"
-
     json_set "$FAILOVER_FILE" "timestamp" "$(date -Iseconds)"
     json_set "$FAILOVER_FILE" "node_role" "$NODE_ROLE"
-    json_set_raw "$FAILOVER_FILE" "failover_needed" "$failover_needed"
+
+    case "$NODE_ROLE" in
+
+        MASTERZERO)
+            log "INFO" "MASTERZERO evaluating failover conditions"
+
+            local failover_needed
+            failover_needed=$(should_failover)
+
+            json_set_raw "$FAILOVER_FILE" "failover_needed" "$failover_needed"
+            ;;
+
+        SECONDARY)
+            log "INFO" "SECONDARY does not evaluate failover — MASTERZERO decides"
+
+            json_set "$FAILOVER_FILE" "failover_needed" "handled_by_master"
+            ;;
+
+        OFFSITE)
+            log "INFO" "OFFSITE does not participate in failover logic"
+
+            json_set "$FAILOVER_FILE" "failover_needed" "not_applicable"
+            ;;
+
+        *)
+            log "INFO" "Unknown node role: ${NODE_ROLE}"
+            json_set "$FAILOVER_FILE" "failover_needed" "invalid_node_role"
+            ;;
+    esac
 
     json_finalize "$FAILOVER_FILE"
-
     log "Failover state written to $FAILOVER_FILE"
 }
+
 
 main "$@"
