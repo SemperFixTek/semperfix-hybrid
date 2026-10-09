@@ -1,6 +1,6 @@
 {
   "node": {
-    "role": "SECONDARY", 
+    "role": "SECONDARY",
     "hostname": "secondary",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs"
