@@ -1,0 +1,16 @@
+[Unit]
+Description=Phoenix v2 QUIC Client / QUIC Health Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/opt/semperfix/scripts/wsl-quic-client.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/semperfix/logs/quic-client.log
+StandardError=append:/opt/semperfix/logs/quic-client.log
+
+[Install]
+WantedBy=default.target

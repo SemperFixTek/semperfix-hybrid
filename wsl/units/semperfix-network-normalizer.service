@@ -1,0 +1,17 @@
+# /opt/semperfix/units/semperfix-network-normalizer.service 
+
+[Unit] 
+Description=SemperFix WSL2 Network Normalizer 
+After=network-online.target 
+Before=semperfix-supervisor.service  
+
+[Service] 
+Type=oneshot 
+User=sfx 
+ExecStart=/opt/semperfix/scripts/linux-normalizer.sh 
+RemainAfterExit=yes 
+StandardOutput=append:/opt/semperfix/logs/network.log 
+StandardError=append:/opt/semperfix/logs/network.log  
+
+[Install] 
+WantedBy=default.target

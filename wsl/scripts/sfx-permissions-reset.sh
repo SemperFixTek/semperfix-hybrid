@@ -39,6 +39,10 @@ SFX_DIRS=(
     "/opt/semperfix"
     "/opt/semperfix/scripts"
     "/opt/semperfix/logs"
+    "/opt/semperfix/monitors"
+    "/opt/semperfix/units"
+    "/opt/semperfix/config"
+    "/opt/semperfix/state"
     "/var/lib/semperfix"
     "/var/lib/semperfix/state"
 )

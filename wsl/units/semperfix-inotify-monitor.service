@@ -1,0 +1,18 @@
+# /opt/semperfix/units/semperfix-inotify-monitor.service 
+
+[Unit] 
+Description=SemperFix inotify File Integrity Monitor 
+After=local-fs.target 
+Wants=local-fs.target  
+
+[Service] 
+Type=simple 
+User=sfx 
+ExecStart=/opt/semperfix/monitors/inotify-monitor.sh 
+Restart=always 
+RestartSec=5 
+StandardOutput=append:/opt/semperfix/logs/inotify.log 
+StandardError=append:/opt/semperfix/logs/inotify.log  
+
+[Install] 
+WantedBy=default.target

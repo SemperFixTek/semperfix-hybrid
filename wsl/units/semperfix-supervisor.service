@@ -1,0 +1,16 @@
+[Unit]
+Description=SemperFix Phoenix v2 Unified Supervisor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sfx
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-supervisor.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/semperfix/logs/supervisor.log
+StandardError=append:/opt/semperfix/logs/supervisor.log
+
+[Install]
+WantedBy=default.target
