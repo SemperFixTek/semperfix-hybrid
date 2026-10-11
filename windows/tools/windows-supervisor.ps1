@@ -11,15 +11,31 @@ function Log($msg) {
 }
 
 # ---------------------------------------------------------
-# Load Phoenix config (for role/context)
+# Ensure WSL is running
 # ---------------------------------------------------------
-$phoenixPath = "\\wsl$\Ubuntu\opt\semperfix\config\phoenix.json"   # adjust distro name
-if (-not (Test-Path $phoenixPath)) {
-    Log "phoenix.json not found at $phoenixPath"
-    exit 1
+try {
+    wsl.exe -d Ubuntu -- echo "WSL online" 2>$null | Out-Null
+    Log "WSL started successfully"
+} catch {
+    Log "WSL failed to start"
 }
 
-$phoenix   = Get-Content $phoenixPath -Raw | ConvertFrom-Json
+# ---------------------------------------------------------
+# Load Phoenix config (WSL-safe)
+# ---------------------------------------------------------
+try {
+    $phoenixJson = wsl.exe -d Ubuntu cat "/opt/semperfix/config/phoenix.json" 2>$null
+    if (-not $phoenixJson) {
+        Log "phoenix.json missing or unreadable via WSL"
+        $phoenix = $null
+    } else {
+        $phoenix = $phoenixJson | ConvertFrom-Json
+    }
+} catch {
+    Log "Exception reading phoenix.json: $_"
+    $phoenix = $null
+}
+
 $node_role = $phoenix.node.role
 
 # ---------------------------------------------------------
@@ -27,25 +43,35 @@ $node_role = $phoenix.node.role
 # ---------------------------------------------------------
 $winHbPath = Join-Path $StateDir "windows-heartbeat.json"
 $winHb = if (Test-Path $winHbPath) {
-    Get-Content $winHbPath -Raw | ConvertFrom-Json
+    try {
+        Get-Content $winHbPath -Raw | ConvertFrom-Json
+    } catch {
+        Log "Failed to parse Windows heartbeat JSON: $_"
+        $null
+    }
 } else {
     Log "Windows heartbeat not found at $winHbPath"
     $null
 }
 
 # ---------------------------------------------------------
-# Load WSL heartbeat
+# Load WSL heartbeat (WSL-safe)
 # ---------------------------------------------------------
-$wslHbPath = "\\wsl$\Ubuntu\var\lib\semperfix\state\phoenix-heartbeat.json"  # adjust distro
-$wslHb = if (Test-Path $wslHbPath) {
-    Get-Content $wslHbPath -Raw | ConvertFrom-Json
-} else {
-    Log "WSL heartbeat not found at $wslHbPath"
-    $null
+try {
+    $wslHbJson = wsl.exe -d Ubuntu cat "/var/lib/semperfix/state/phoenix-heartbeat.json" 2>$null
+    if (-not $wslHbJson) {
+        Log "WSL heartbeat missing or unreadable"
+        $wslHb = $null
+    } else {
+        $wslHb = $wslHbJson | ConvertFrom-Json
+    }
+} catch {
+    Log "Exception reading WSL heartbeat: $_"
+    $wslHb = $null
 }
 
 # ---------------------------------------------------------
-# Extract Windows-side fields
+# Extract Windows-side fields (null-safe)
 # ---------------------------------------------------------
 $windows_syncthing_ok = $winHb.syncthing_ok
 $windows_api_ok       = $winHb.syncthing_api_ok
@@ -59,13 +85,13 @@ $peer_port           = $winHb.peer_port
 $phoenix_quic_port   = $winHb.phoenix_quic_port
 
 # ---------------------------------------------------------
-# Extract WSL-side fields
+# Extract WSL-side fields (null-safe)
 # ---------------------------------------------------------
 $wsl_api_ok  = $wslHb.api_ok
 $wsl_mesh_ok = $wslHb.mesh_ok
 
 # ---------------------------------------------------------
-# Compute overall_ok (role-aware if needed later)
+# Compute overall_ok (null-safe)
 # ---------------------------------------------------------
 $overall_ok = if (
     $windows_syncthing_ok -eq "true" -and

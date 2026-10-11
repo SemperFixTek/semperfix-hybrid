@@ -1,5 +1,5 @@
-$StateDir = "C:\SemperFix\state"
-$LogDir   = "C:\SemperFix\logs"
+$StateDir      = "C:\SemperFix\state"
+$LogDir        = "C:\SemperFix\logs"
 $HeartbeatFile = Join-Path $StateDir "windows-heartbeat.json"
 $LogFile       = Join-Path $LogDir "windows-heartbeat.log"
 
@@ -11,22 +11,36 @@ function Log($msg) {
 }
 
 # ---------------------------------------------------------
-# Load unified Phoenix config (from WSL)
+# Ensure WSL is running
 # ---------------------------------------------------------
-$phoenixPath = "\\wsl$\Ubuntu\opt\semperfix\config\phoenix.json"   # adjust distro name
-if (-not (Test-Path $phoenixPath)) {
-    Log "phoenix.json not found at $phoenixPath"
-    exit 1
+try {
+    wsl.exe -d Ubuntu -- echo "WSL online" 2>$null | Out-Null
+    Log "WSL started successfully"
+} catch {
+    Log "WSL failed to start: $_"
 }
 
-$phoenix = Get-Content $phoenixPath -Raw | ConvertFrom-Json
+# ---------------------------------------------------------
+# Load unified Phoenix config (WSL-safe)
+# ---------------------------------------------------------
+try {
+    $phoenixJson = wsl.exe -d Ubuntu cat "/opt/semperfix/config/phoenix.json" 2>$null
+    if (-not $phoenixJson) {
+        Log "phoenix.json missing or unreadable via WSL"
+        $phoenix = $null
+    } else {
+        $phoenix = $phoenixJson | ConvertFrom-Json
+    }
+} catch {
+    Log "Exception reading phoenix.json: $_"
+    $phoenix = $null
+}
 
-# Extract fields from actual phoenix.json structure
-$node_role = $phoenix.node.role
-$apiUrl    = $phoenix.syncthing.api_url
-$apiKey    = $phoenix.syncthing.api_key
-$peer_ip   = $phoenix.syncthing.peer_ip
-$peer_port = $phoenix.syncthing.peer_port
+$node_role         = $phoenix.node.role
+$apiUrl            = $phoenix.syncthing.api_url
+$apiKey            = $phoenix.syncthing.api_key
+$peer_ip           = $phoenix.syncthing.peer_ip
+$peer_port         = $phoenix.syncthing.peer_port
 $phoenix_quic_port = $phoenix.phoenix.quic_port
 
 Log "Loaded Phoenix config: role=${node_role} apiUrl=${apiUrl} peer=${peer_ip}:${peer_port}"
@@ -34,11 +48,11 @@ Log "Loaded Phoenix config: role=${node_role} apiUrl=${apiUrl} peer=${peer_ip}:$
 # ---------------------------------------------------------
 # Syncthing process check
 # ---------------------------------------------------------
-$syncthing = Get-Process -Name "syncthing" -ErrorAction SilentlyContinue
+$syncthing    = Get-Process -Name "syncthing" -ErrorAction SilentlyContinue
 $syncthing_ok = if ($syncthing) { "true" } else { "false" }
 
 # ---------------------------------------------------------
-# Syncthing API check (corrected with API key)
+# Syncthing API check (with API key)
 # ---------------------------------------------------------
 try {
     $pong = Invoke-WebRequest `
@@ -49,35 +63,57 @@ try {
 
     $syncthing_api_ok = if ($pong.Content -like "*pong*") { "true" } else { "false" }
 } catch {
+    Log "Syncthing API ping failed: $_"
     $syncthing_api_ok = "false"
 }
 
 # ---------------------------------------------------------
 # QUIC 22000 check (Syncthing QUIC listener)
 # ---------------------------------------------------------
-$quic_22000_ok = if (Get-NetUDPEndpoint | Where-Object { $_.LocalPort -eq $peer_port }) { "true" } else { "false" }
+try {
+    $quic_22000_ok = if (Get-NetUDPEndpoint | Where-Object { $_.LocalPort -eq $peer_port }) { "true" } else { "false" }
+} catch {
+    Log "QUIC endpoint check failed: $_"
+    $quic_22000_ok = "false"
+}
 
 # ---------------------------------------------------------
 # Windows IP
 # ---------------------------------------------------------
-$windows_ip = (Get-NetIPAddress -AddressFamily IPv4 |
-               Where-Object { $_.InterfaceAlias -notlike "*Loopback*" -and $_.IPAddress -notlike "169.254.*" } |
-               Select-Object -First 1 -ExpandProperty IPAddress)
+try {
+    $windows_ip = (Get-NetIPAddress -AddressFamily IPv4 |
+                   Where-Object { $_.InterfaceAlias -notlike "*Loopback*" -and $_.IPAddress -notlike "169.254.*" } |
+                   Select-Object -First 1 -ExpandProperty IPAddress)
+} catch {
+    Log "Windows IP detection failed: $_"
+    $windows_ip = $null
+}
 
 # ---------------------------------------------------------
-# WSL IP (from wsl-ip.txt)
+# WSL IP (from WSL, not UNC)
 # ---------------------------------------------------------
 $wsl_ip = $null
-$wslPath = "\\wsl$\Ubuntu\opt\semperfix\state\wsl-ip.txt"   # adjust distro name
-if (Test-Path $wslPath) {
-    $wsl_ip = Get-Content $wslPath -ErrorAction SilentlyContinue | Select-Object -First 1
+try {
+    $wslIpText = wsl.exe -d Ubuntu cat "/opt/semperfix/state/wsl-ip.txt" 2>$null
+    if ($wslIpText) {
+        $wsl_ip = ($wslIpText -split "`n")[0]
+    } else {
+        Log "wsl-ip.txt missing or empty via WSL"
+    }
+} catch {
+    Log "WSL IP read failed: $_"
 }
 
 # ---------------------------------------------------------
 # Firewall check
 # ---------------------------------------------------------
-$fwProfile = Get-NetFirewallProfile -ErrorAction SilentlyContinue
-$windows_firewall_ok = if ($fwProfile | Where-Object { $_.Enabled -eq $true }) { "true" } else { "false" }
+try {
+    $fwProfile           = Get-NetFirewallProfile -ErrorAction SilentlyContinue
+    $windows_firewall_ok = if ($fwProfile | Where-Object { $_.Enabled -eq $true }) { "true" } else { "false" }
+} catch {
+    Log "Firewall profile check failed: $_"
+    $windows_firewall_ok = "false"
+}
 
 # ---------------------------------------------------------
 # Build JSON
