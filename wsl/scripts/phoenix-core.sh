@@ -40,6 +40,21 @@ phoenix_log() {
     fi
 }
 
+phoenix_log_file() {
+    local level="$1"
+    shift
+    local message="$*"
+
+    # Always print to console
+    phoenix_log "$level" "$message"
+
+    # If a log file is defined, append to it
+    if [[ -n "${PHOENIX_LOGFILE:-}" ]]; then
+        printf "[%s] %s\n" "$level" "$message" >> "$PHOENIX_LOGFILE" 2>/dev/null || true
+    fi
+}
+
+
 phoenix_debug() {
     local message="$1"
     if [[ "${PHOENIX_DEBUG:-0}" == "1" ]]; then

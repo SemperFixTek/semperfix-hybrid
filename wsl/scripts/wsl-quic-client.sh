@@ -1,48 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phoenix v2 Core + JSON Loader
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
+
+mkdir -p "$STATE_DIR" "$LOG_DIR"
+dos2unix "$0" 2>/dev/null || true
+
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG="/opt/semperfix/logs/quic-client.log"
-STATUS_JSON="$STATE_DIR/quic-client-status.json"
+LOGFILE="${LOG_DIR}/quic-client.log"
+STATUS_JSON="${STATE_DIR}/quic-client-status.json"
 
-# QUIC target derived from phoenix.json
-QUIC_TARGET="${PEER_IP}:${PHOENIX_QUIC_PORT}"
+PHOENIX_LOGFILE="$LOGFILE"
+log() { phoenix_log_file "INFO" "$*"; }
 
-log() {
-    echo "[$(date -Iseconds)] [QUIC-CLIENT] $*" | tee -a "$LOG"
-}
+QUIC_IP="${PEER_IP}"
+QUIC_PORT="${PHOENIX_QUIC_PORT}"
 
-write_state() {
-    cat <<EOF > "$STATUS_JSON"
-{
-    "Timestamp": "$(date -Iseconds)",
-    "NodeRole": "${NODE_ROLE}",
-    "QuicReachable": "$1",
-    "LatencyMs": "$2"
-}
-EOF
-}
-
-# QUIC reachability test using /dev/tcp
 check_quic() {
-    if timeout 2 bash -c "</dev/tcp/${QUIC_TARGET%:*}/${QUIC_TARGET#*:}" 2>/dev/null; then
+    if echo "probe" | nc -u -w1 "${QUIC_IP}" "${QUIC_PORT}" &>/dev/null; then
         echo "true"
     else
         echo "false"
     fi
 }
 
-# QUIC latency measurement
 measure_latency() {
     local start end
     start=$(date +%s%3N)
 
-    if timeout 2 bash -c "</dev/tcp/${QUIC_TARGET%:*}/${QUIC_TARGET#*:}" 2>/dev/null; then
+    if echo "probe" | nc -u -w1 "${QUIC_IP}" "${QUIC_PORT}" &>/dev/null; then
         end=$(date +%s%3N)
         echo $((end - start))
     else
@@ -50,14 +40,23 @@ measure_latency() {
     fi
 }
 
+write_state() {
+    json_init "$STATUS_JSON"
+    json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
+    json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
+    json_set "$STATUS_JSON" "quic_reachable" "$1"
+    json_set "$STATUS_JSON" "latency_ms" "$2"
+    json_finalize "$STATUS_JSON"
+}
+
 log "Phoenix QUIC Client starting (${NODE_ROLE})"
-log "Target: ${QUIC_TARGET}"
+log "Target: ${QUIC_IP}:${QUIC_PORT}"
 
 while true; do
     quic_ok=$(check_quic)
     latency=$(measure_latency)
 
-    log "QUIC=$quic_ok  Latency=${latency}ms"
+    log "QUIC=${quic_ok}  Latency=${latency}ms"
 
     write_state "$quic_ok" "$latency"
 

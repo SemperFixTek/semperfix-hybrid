@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phoenix v2 Standard Environment Header
-umask 002
-
-# Ensure consistent locale + predictable JSON behavior
-export LC_ALL=C.UTF-8
-export LANG=C.UTF-8
-
-# Ensure logs and state directories exist
-mkdir -p /var/lib/semperfix/state
-mkdir -p /opt/semperfix/logs
-
-# Safety: prevent Windows CRLF issues
-dos2unix "$0" 2>/dev/null || true
-
-
 STATUS_FILE="/var/lib/semperfix/state/phoenix-status.json"
 
 fail() {
@@ -61,7 +46,7 @@ for field in "${required_fields[@]}"; do
     [[ "$value" == "null" ]] && fail "Missing field: $field"
 done
 
-# ---------- Boolean validation ----------
+# ---------- Boolean validation (allow not_applicable) ----------
 bool_fields=(
     ".health.api_ok"
     ".health.peer_connected"
@@ -72,8 +57,10 @@ bool_fields=(
 
 for field in "${bool_fields[@]}"; do
     val=$(jq -r "$field" "$STATUS_FILE")
-    [[ "$val" != "true" && "$val" != "false" ]] \
-        && fail "Invalid boolean for $field: $val"
+    case "$val" in
+        true|false|not_applicable) ;;
+        *) fail "Invalid boolean-like value for $field: $val" ;;
+    esac
 done
 
 # ---------- Supervisor status validation ----------
@@ -85,8 +72,10 @@ status_fields=(
 
 for field in "${status_fields[@]}"; do
     val=$(jq -r "$field" "$STATUS_FILE")
-    [[ "$val" != "pass" && "$val" != "fail" ]] \
-        && fail "Invalid supervisor status for $field: $val"
+    case "$val" in
+        pass|fail|unknown) ;;
+        *) fail "Invalid supervisor status for $field: $val" ;;
+    esac
 done
 
 pass "phoenix-status.json v2 validation OK"

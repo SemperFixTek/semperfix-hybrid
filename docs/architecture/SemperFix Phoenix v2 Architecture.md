@@ -1,272 +1,363 @@
-# **📘 SemperFix Phoenix v2 Architecture Document**
+⭐ Phoenix v2 Architecture Map
+High-Level Overview
+Phoenix v2 is a hybrid Windows + WSL2 cluster control plane built around:
 
-### **Hybrid Cluster Control Plane — Syncthing Transport Edition**
+Syncthing mesh
 
-Version: **2.0**   Status: **Production Architecture**   Author: **Bruce (SemperFix)**   Generated: **2026‑09‑06**
+QUIC signaling
 
-## **1. Overview**
+WSL-based cluster logic
 
-Phoenix v2 is the **cluster control plane** for SemperFix hybrid deployments. It manages:
+Windows-based host health reporting
 
-* Node roles
-* Failover
-* Recovery
-* Promotion/demotion
-* Cluster health
-* Transport integrity
-* Status propagation
+Unified JSON state
 
-Phoenix v2 replaces all SMB/UNC dependencies with ​**Syncthing‑based transport**​, ensuring:
+Deterministic failover
 
-* Reliable cross‑node state propagation
-* Encrypted, resilient file sync
-* Zero reliance on Windows networking
-* Zero reliance on vSwitch ACLs
-* Zero reliance on SMB shares
+Deterministic descalation
 
-Phoenix v2 operates entirely on ​**local Syncthing‑synced folders**​, making the cluster transport layer:
+WSL is the brain.
+Windows is the host health reporter.
+SECONDARY is the standby brain.
+OFFSITE is the observer.
 
-* Deterministic
-* Predictable
-* Network‑agnostic
-* Failover‑safe
+⭐ Node Roles (Authoritative)
+MASTERZERO
+Runs all Phoenix logic
 
-## **2. Phoenix v2 Components**
+Runs all mesh logic
 
-Phoenix v2 consists of ​**eight modules**​:
+Runs QUIC responder
 
-### **2.1 Core Modules**
+Runs QUIC client
 
-| Module                                 | Purpose                                    |
-| ---------------------------------------- | -------------------------------------------- |
-| **phoenix-supervisor.ps1**       | Continuous cluster brain (role controller) |
-| **phoenix-syncthing-health.ps1** | Transport health module                    |
-| **phoenix-status-write.ps1**     | Writes phoenix-status.json v2              |
-| **phoenix-status-validate.ps1**  | Validates phoenix-status.json v2           |
+Runs failover
 
-### **2.2 Action Modules**
+Runs descalate
 
-| Module                         | Purpose                       |
-| -------------------------------- | ------------------------------- |
-| **phoenix-promote.ps1**  | SECONDARY → ACTIVE           |
-| **phoenix-demote.ps1**   | ACTIVE → PASSIVE             |
-| **phoenix-recover.ps1**  | MASTERZERO recovery           |
-| **phoenix-escalate.ps1** | Mark node degraded / escalate |
+Runs supervisor
 
-### **2.3 Utility Modules**
+Runs heartbeat
 
-| Module                           | Purpose                            |
-| ---------------------------------- | ------------------------------------ |
-| **phoenix-role-check.ps1** | Returns current role               |
-| **phoenix-dryrun.ps1**     | Non-destructive cluster validation |
+Writes all cluster JSON
 
-## **3. Transport Layer (Syncthing)**
+Decides failover
 
-Phoenix v2 uses Syncthing to synchronize ​**three authoritative folders**​:
+Decides descalation
 
-| Folder                 | MASTERZERO     | SECONDARY      |
-| ------------------------ | ---------------- | ---------------- |
-| **MasterZero**   | Send Only      | Receive Only   |
-| **ConfigBackup** | Send Only      | Receive Only   |
-| **Assets**       | Send & Receive | Send & Receive |
+SECONDARY
+Runs all mesh logic
 
-These folders contain:
+Runs QUIC client
 
-* Phoenix status
-* Cluster lineage
-* Failover markers
-* Recovery markers
-* Config backups
-* Assets required for cluster operation
+Runs heartbeat
 
-All Phoenix scripts read/write ​**local paths only**​:
+Runs supervisor
 
-Code
+Reacts to failover
 
-```
-C:\SemperFix\MasterZero
-C:\SemperFix\ConfigBackup
-C:\SemperFix\Assets
-```
+Never decides failover
 
-Syncthing ensures these folders remain synchronized across nodes.
+Never runs descalate
 
-## **4. Phoenix Status Document (phoenix-status.json v2)**
+Never runs QUIC responder
 
-Phoenix v2 uses a unified cluster state document stored at:
+OFFSITE
+Runs heartbeat
 
-Code
+Runs supervisor
 
-```
-C:\SemperFix\ConfigBackup\phoenix-status.json
-```
+Observes cluster state
 
-### **4.1 Status Schema**
+Never participates in mesh
 
-The v2 schema contains:
+Never participates in QUIC
 
-* Role
-* Status
-* Node identity
-* Cluster lineage
-* Syncthing health
-* Phoenix health
-* Action flags
-* Metadata
+Never participates in failover
 
-This document is the **single source of truth** for Phoenix cluster state.
+Never participates in descalation
 
-## **5. Phoenix v2 Role Model**
+⭐ WSL-Side Modules (Authoritative Control Plane)
+1. phoenix-core.sh
+Loads config
 
-Phoenix v2 defines ​**three roles**​:
+Loads environment
 
-### **5.1 MASTERZERO-ACTIVE**
+Provides logging
 
-* Authoritative node
-* Writes cluster state
-* Sends Syncthing updates
-* Controls lineage
+Provides JSON helpers
 
-### **5.2 SECONDARY-ACTIVE**
+Provides role + API + peer info
 
-* Temporary master during failover
-* Writes cluster state
-* Sends Syncthing updates
+Required by every other module
 
-### **5.3 SECONDARY-PASSIVE**
+2. phoenix-heartbeat.sh
+Writes:
+/var/lib/semperfix/state/phoenix-heartbeat.json
 
-* Standby node
-* Receives Syncthing updates
-* Ready for promotion
+Fields include:
 
-## **6. Phoenix v2 State Model**
+api_ok
 
-Phoenix v2 defines ​**five states**​:
+mesh_ok
 
-| State                       | Meaning                             |
-| ----------------------------- | ------------------------------------- |
-| **HEALTHY**           | Node fully operational              |
-| **DEGRADED**          | Node impaired; escalation triggered |
-| **FAILOVER\_ALLOWED** | Supervisor may promote SECONDARY    |
-| **RECOVER**           | MASTERZERO may reclaim authority    |
-| **ERROR**             | Critical failure                    |
+syncthing_ready
 
-## **7. Phoenix v2 Decision Logic**
+quic_ok
 
-Phoenix v2 decision logic is executed by:
+peer_connected
 
-Code
+timestamp
 
-```
-phoenix-supervisor.ps1
-```
+node_role
 
-### **7.1 Promotion Conditions**
+Runs on: all nodes
 
-SECONDARY-PASSIVE → SECONDARY-ACTIVE when:
+3. phoenix-supervisor.sh
+Writes:
+/var/lib/semperfix/state/phoenix-supervisor.json
 
-* Status = `FAILOVER_ALLOWED`
-* Syncthing = Healthy
-* Phoenix = Healthy
+Fields include:
 
-### **7.2 Demotion Conditions**
+handshake
 
-SECONDARY-ACTIVE → SECONDARY-PASSIVE when:
+verify
 
-* Status = `RECOVER`
-* MASTERZERO = Healthy
-* Syncthing = Healthy
+activate
 
-### **7.3 Recovery Conditions**
+failover state
 
-MASTERZERO-ACTIVE restored when:
+mesh state
 
-* Status = `RECOVER`
-* MASTERZERO = Healthy
-* Syncthing = Healthy
+timestamp
 
-### **7.4 Escalation Conditions**
+Runs on: all nodes
 
-Node marked `DEGRADED` when:
+4. phoenix-status-write.sh
+Writes:
+/var/lib/semperfix/state/phoenix-status.json
 
-* Syncthing unhealthy
-* Phoenix service unhealthy
-* Status JSON stale
-* Supervisor detects critical failure
+This is the unified cluster state snapshot.
 
-## **8. Phoenix v2 Module Interactions**
+Runs on: all nodes
 
-Code
+5. phoenix-failover.sh
+Writes:
+/var/lib/semperfix/state/phoenix-failover.json
 
-```
-phoenix-supervisor
-    ├── phoenix-syncthing-health
-    ├── phoenix-status-validate
-    ├── phoenix-promote
-    ├── phoenix-demote
-    ├── phoenix-recover
-    ├── phoenix-escalate
-    └── phoenix-status-write
-```
+MASTERZERO: decides failover
+SECONDARY: reports “handled_by_master”
+OFFSITE: reports “not_applicable”
 
-Supervisor is the ​**brain**​. Syncthing is the ​**transport**​. phoenix-status.json is the ​**truth**​.
+Runs on: MASTERZERO only
 
-## **9. Phoenix v2 Execution Flow**
+6. phoenix-descalate.sh
+Writes:
+/opt/semperfix/logs/phoenix-descalate.log
 
-### **9.1 Normal Operation**
+MASTERZERO: captures cluster snapshot
+SECONDARY/OFFSITE: disabled
 
-MASTERZERO-ACTIVE ↓ Syncthing syncs state ↓ SECONDARY-PASSIVE monitors
+Runs on: MASTERZERO only
 
-### **9.2 Failover**
+⭐ Mesh Modules (WSL Only)
+1. wsl-mesh-handshake.sh
+Initial peer handshake
 
-MASTERZERO → DEGRADED ↓ Status = FAILOVER\_ALLOWED ↓ SECONDARY-PASSIVE → SECONDARY-ACTIVE ↓ Cluster lineage updated
+Writes handshake status
 
-### **9.3 Recovery**
+Logs handshake events
 
-MASTERZERO returns ↓ Status = RECOVER ↓ SECONDARY-ACTIVE → SECONDARY-PASSIVE ↓ MASTERZERO-ACTIVE restored
+2. wsl-mesh-verify.sh
+Verifies peer connectivity
 
-## **10. Phoenix v2 Logging**
+Verifies Syncthing readiness
 
-All modules use SemperFix logging format:
+Writes verify status
 
-Code
+3. wsl-mesh-activate.sh
+MASTERZERO sends QUIC activation
 
-```
-[2026-09-06 04:01:00] [INFO] Message
-[2026-09-06 04:01:00] [WARN] Message
-[2026-09-06 04:01:00] [ERROR] Message
-```
+SECONDARY responds
 
-Logs stored in:
+OFFSITE observes
 
-Code
+Writes activation status
 
-```
-C:\SemperFix\Logs\
-```
+4. wsl-mesh-listener.sh
+MASTERZERO-only
 
-## **11. Phoenix v2 Guarantees**
+Monitors Syncthing + QUIC
 
-Phoenix v2 guarantees:
+Writes mesh-listener.json
 
-* **SMB-free operation**
-* **Deterministic failover**
-* **Deterministic recovery**
-* **Consistent cluster state**
-* **Syncthing-backed transport**
-* **No reliance on Windows networking**
-* **No reliance on UNC paths**
-* **No reliance on vSwitch ACLs**
-* **No reliance on SMB shares**
+5. wsl-mesh-status.sh
+Unified mesh status
 
-This is the most stable, predictable, and resilient Phoenix architecture to date.
+Writes mesh-status.json
 
-## **12. Phoenix v2 Future Extensions**
+⭐ QUIC Modules (WSL Only)
+1. phoenix-quic-responder.sh
+MASTERZERO-only
+Listens on: $PHOENIX_QUIC_PORT  
+Responds with: ack
 
-* Multi-node cluster support
-* Offsite node integration
-* Syncthing QUIC priority mode
-* Phoenix heartbeat service
-* Phoenix cluster dashboard
-* Phoenix v2 REST API
+2. phoenix-quic-client.sh
+Runs on all nodes
+Measures:
 
+QUIC reachability
+
+QUIC latency
+
+Writes:
+quic-client-status.json
+
+⭐ Windows-Side Modules (Host Health Layer)
+1. windows-heartbeat.ps1
+Writes:
+C:\SemperFix\state\windows-heartbeat.json
+
+Fields include:
+
+syncthing_ok
+
+syncthing_api_ok
+
+quic_22000_ok
+
+windows_firewall_ok
+
+windows_ip
+
+wsl_ip
+
+peer_ip
+
+peer_port
+
+phoenix_quic_port
+
+Runs on: all Windows hosts
+
+2. windows-supervisor.ps1
+Writes:
+C:\SemperFix\state\windows-supervisor.json
+
+Aggregates:
+
+Windows heartbeat
+
+WSL heartbeat
+
+Windows health
+
+WSL health
+
+QUIC health
+
+Mesh health
+
+Runs on: all Windows hosts
+
+⭐ JSON State Model (Authoritative)
+WSL State Directory
+/var/lib/semperfix/state/
+
+Contains:
+
+phoenix-heartbeat.json
+
+phoenix-supervisor.json
+
+phoenix-status.json
+
+phoenix-failover.json
+
+mesh-handshake.json
+
+mesh-verify.json
+
+mesh-activate.json
+
+mesh-listener.json
+
+mesh-status.json
+
+quic-client-status.json
+
+Windows State Directory
+C:\SemperFix\state\
+
+Contains:
+
+windows-heartbeat.json
+
+windows-supervisor.json
+
+⭐ Windows ↔ WSL Interaction Model
+Windows → WSL
+windows-heartbeat reads WSL IP
+
+windows-supervisor reads WSL heartbeat
+
+windows-supervisor reads phoenix.json
+
+windows-supervisor reads WSL mesh state
+
+WSL → Windows
+WSL writes all cluster state
+
+Windows reads cluster state
+
+Windows never writes cluster state
+
+Windows never decides failover
+
+Windows never runs mesh logic
+
+⭐ Failover Model (Phoenix v2)
+MASTERZERO decides failover based on:
+WSL heartbeat
+
+WSL supervisor
+
+QUIC client
+
+mesh status
+
+Syncthing API
+
+Windows heartbeat (via windows-supervisor)
+
+SECONDARY reacts
+OFFSITE observes
+⭐ Descalation Model (Phoenix v2)
+MASTERZERO generates the cluster snapshot.
+SECONDARY descalates itself only.
+OFFSITE does nothing.
+
+⭐ Why This Architecture Works
+No split-brain
+
+No duplicate failover logic
+
+No duplicate mesh logic
+
+No Windows-side cluster decisions
+
+Deterministic failover
+
+Deterministic descalation
+
+Unified JSON state
+
+Unified logging
+
+Unified role model
+
+Predictable behavior
+
+Easy to document
+
+Easy to maintain

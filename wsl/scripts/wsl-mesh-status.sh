@@ -1,52 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phoenix v2 Standard Environment Header
 umask 002
-
-# Ensure consistent locale + predictable JSON behavior
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Ensure logs and state directories exist
-mkdir -p /var/lib/semperfix/state
-mkdir -p /opt/semperfix/logs
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
 
-# Safety: prevent Windows CRLF issues
+mkdir -p "$STATE_DIR" "$LOG_DIR"
 dos2unix "$0" 2>/dev/null || true
-
-
-# ============================================================
-# Phoenix Mesh Status — SemperFix Edition (v2)
-# ============================================================
 
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
-phoenix_load_config
+phoenix_init
 
-STATUS_LOG="/opt/semperfix/logs/mesh-status.log"
-STATUS_JSON="/opt/semperfix/logs/mesh-status.json"
+STATUS_LOG="${LOG_DIR}/mesh-status.log"
+STATUS_JSON="${STATE_DIR}/mesh-status.json"
 
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
-
-log() {
-    echo -e "${3}[${1}]${NC} ${2}"
-    echo "[${1}] ${2}" >> "$STATUS_LOG"
-}
+PHOENIX_LOGFILE="$STATUS_LOG"
+log() { phoenix_log_file "INFO" "$*"; }
 
 check_api() {
     local pong
     pong=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/ping" || echo "error")
-    log "pong = $pong" "DEBUG" "$BLUE"
+
+    log "API ping result: ${pong}"
+
     if [[ "$pong" == *"pong"* ]]; then
-        log "PASS" "Syncthing API reachable" "$GREEN"
+        log "Syncthing API reachable"
         json_set "$STATUS_JSON" "api_ok" "true"
     else
-        log "FAIL" "Syncthing API unreachable" "$RED"
+        log "Syncthing API unreachable"
         json_set "$STATUS_JSON" "api_ok" "false"
     fi
 }
@@ -55,65 +40,46 @@ check_connections() {
     local matrix
     matrix=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/connections")
 
-    echo "$matrix" >> "$STATUS_LOG"
+    printf "%s\n" "$matrix" >> "$STATUS_LOG"
 
     if [[ "$matrix" == *"connected\": true"* ]]; then
-        log "PASS" "Peer connected" "$GREEN"
+        log "Peer connected"
         json_set "$STATUS_JSON" "peer_connected" "true"
     else
-        log "FAIL" "Peer disconnected" "$RED"
+        log "Peer disconnected"
         json_set "$STATUS_JSON" "peer_connected" "false"
     fi
 }
 
 main() {
-    mkdir -p /opt/semperfix/logs
-    : > "$STATUS_LOG"
+    log "Phoenix Mesh Status (v2) — role: ${NODE_ROLE}"
 
     json_init "$STATUS_JSON"
-
-    log "INFO" "Phoenix Mesh Status (v2) — role: ${NODE_ROLE}" "$YELLOW"
-
     json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
 
     case "$NODE_ROLE" in
 
-        MASTERZERO)
-            log "INFO" "MASTERZERO performing full mesh status check" "$BLUE"
-
+        MASTERZERO|SECONDARY)
+            log "${NODE_ROLE} performing full mesh status check"
             check_api
             check_connections
-
-            ;;
-
-        SECONDARY)
-            log "INFO" "SECONDARY performing full mesh status check" "$BLUE"
-
-            check_api
-            check_connections
-
             ;;
 
         OFFSITE)
-            log "INFO" "OFFSITE performing limited mesh status check" "$BLUE"
-
-            # OFFSITE is not part of the QUIC mesh
+            log "OFFSITE performing limited mesh status check"
             check_api
-
             json_set "$STATUS_JSON" "peer_connected" "not_applicable"
-
             ;;
 
         *)
-            log "FAIL" "Unknown node role: ${NODE_ROLE}" "$RED"
+            log "Unknown node role: ${NODE_ROLE}"
             json_set "$STATUS_JSON" "error" "invalid_node_role"
             ;;
     esac
 
-    log "INFO" "Mesh status complete" "$GREEN"
+    log "Mesh status complete"
     json_finalize "$STATUS_JSON"
 }
-
 
 main "$@"

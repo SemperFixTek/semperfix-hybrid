@@ -18,7 +18,8 @@ dos2unix "$0" 2>/dev/null || true
 
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
-phoenix_load_config
+
+phoenix_init
 
 STATE_DIR="/var/lib/semperfix/state"
 LOG_DIR="/opt/semperfix/logs"
@@ -29,7 +30,7 @@ LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 log() {
-    echo "[INFO] $1" | tee -a "$LOGFILE"
+    phoenix_log_file "INFO" "$*";
 }
 
 # ---------- Health Checks ----------
@@ -61,7 +62,7 @@ check_mesh_ok() {
 }
 
 main() {
-    : > "$LOGFILE"
+  #  : > "$LOGFILE"
     log "Starting Phoenix v2 Heartbeat for role: ${NODE_ROLE}"
 
     # Default values
