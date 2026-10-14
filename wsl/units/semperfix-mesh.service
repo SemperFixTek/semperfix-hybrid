@@ -3,14 +3,13 @@ Description=SemperFix Mesh Activation Coordinator
 After=semperfix-supervisor.service semperfix-network-normalizer.service
 
 [Service]
-Type=simple
+Type=oneshot
 User=root
 Group=semperfix
 ExecStart=/opt/semperfix/scripts/wsl-mesh-activate.sh
-Restart=on-failure
-RestartSec=30
+Restart=no
 StandardOutput=append:/opt/semperfix/logs/mesh.log
 StandardError=append:/opt/semperfix/logs/mesh.log
 
 [Install]
-WantedBy=default.target
+WantedBy=semperfix.target

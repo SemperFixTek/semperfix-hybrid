@@ -5,7 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=sfx
+User=root
+Group=semperfix
 ExecStart=/opt/semperfix/scripts/wsl-phoenix-supervisor.sh
 Restart=always
 RestartSec=5
@@ -13,4 +14,4 @@ StandardOutput=append:/opt/semperfix/logs/supervisor.log
 StandardError=append:/opt/semperfix/logs/supervisor.log
 
 [Install]
-WantedBy=default.target
+WantedBy=semperfix.target

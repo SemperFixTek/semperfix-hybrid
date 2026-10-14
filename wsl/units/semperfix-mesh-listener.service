@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
+Group=semperfix
 ExecStart=/opt/semperfix/scripts/wsl-mesh-listener.sh
 Restart=always
 RestartSec=5
@@ -13,4 +14,4 @@ StandardOutput=append:/opt/semperfix/logs/mesh-listener.log
 StandardError=append:/opt/semperfix/logs/mesh-listener.log
 
 [Install]
-WantedBy=default.target
+WantedBy=semperfix.target

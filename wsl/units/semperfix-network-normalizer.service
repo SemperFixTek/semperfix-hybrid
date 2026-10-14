@@ -7,11 +7,12 @@ Before=semperfix-supervisor.service
 
 [Service] 
 Type=oneshot 
-User=sfx 
+User=root
+Group=semperfix
 ExecStart=/opt/semperfix/scripts/linux-normalizer.sh 
 RemainAfterExit=yes 
 StandardOutput=append:/opt/semperfix/logs/network.log 
 StandardError=append:/opt/semperfix/logs/network.log  
 
 [Install] 
-WantedBy=default.target
+WantedBy=semperfix.target

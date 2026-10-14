@@ -14,8 +14,8 @@ dos2unix "$0" 2>/dev/null || true
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
-# --- ROLE GUARD ---
-if [[ "$NODE_ROLE" != "MASTERZERO" ]]; then
+# --- ROLE GUARD: SECONDARY ONLY ---
+if [[ "$NODE_ROLE" != "SECONDARY" ]]; then
     echo "[INFO] QUIC responder disabled for role: ${NODE_ROLE}"
     exit 0
 fi
@@ -39,7 +39,7 @@ LOGFILE="/opt/semperfix/logs/phoenix-quic-responder.log"
 PEER="$SOCAT_PEERADDR"
 
 echo "[INFO] Received QUIC probe from ${PEER}" >> "$LOGFILE"
-echo ack | socat -u - UDP-SENDTO:${PEER}:$PHOENIX_QUIC_PORT >> "$LOGFILE" 2>&1
+echo ack | socat -u - UDP-SENDTO:${PEER}:${PORT} >> "$LOGFILE" 2>&1
 EOF
 
 chmod +x "$HANDLER"

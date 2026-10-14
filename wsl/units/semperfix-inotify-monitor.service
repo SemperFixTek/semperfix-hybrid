@@ -7,7 +7,8 @@ Wants=local-fs.target
 
 [Service] 
 Type=simple 
-User=sfx 
+User=root
+Group=semperfix
 ExecStart=/opt/semperfix/monitors/inotify-monitor.sh 
 Restart=always 
 RestartSec=5 
@@ -15,4 +16,5 @@ StandardOutput=append:/opt/semperfix/logs/inotify.log
 StandardError=append:/opt/semperfix/logs/inotify.log  
 
 [Install] 
-WantedBy=default.target
+WantedBy=semperfix.target
+

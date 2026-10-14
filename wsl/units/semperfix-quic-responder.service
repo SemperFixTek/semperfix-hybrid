@@ -1,0 +1,17 @@
+[Unit]
+Description=SemperFix Phoenix QUIC Responder (v2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=semperfix
+ExecStart=/opt/semperfix/scripts/phoenix-quic-responder.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/semperfix/logs/quic-responder.log
+StandardError=append:/opt/semperfix/logs/quic-responder.log
+
+[Install]
+WantedBy=semperfix.target

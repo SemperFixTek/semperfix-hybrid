@@ -17,6 +17,12 @@ STATUS_JSON="${STATE_DIR}/quic-client-status.json"
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
+# --- ROLE GUARD: MASTERZERO ONLY ---
+if [[ "$NODE_ROLE" != "MASTERZERO" ]]; then
+    log "QUIC client disabled for role: ${NODE_ROLE}"
+    exit 0
+fi
+
 QUIC_IP="${PEER_IP}"
 QUIC_PORT="${PHOENIX_QUIC_PORT}"
 
