@@ -4,6 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+Umask=002
 Type=simple
 User=root
 Group=semperfix

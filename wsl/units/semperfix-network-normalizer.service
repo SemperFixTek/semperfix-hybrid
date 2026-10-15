@@ -5,7 +5,8 @@ Description=SemperFix WSL2 Network Normalizer
 After=network-online.target 
 Before=semperfix-supervisor.service  
 
-[Service] 
+[Service]
+Umask=002
 Type=oneshot 
 User=root
 Group=semperfix

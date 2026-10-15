@@ -5,6 +5,7 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
+Umask=002
 Type=oneshot
 ExecStart=/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh
 User=root

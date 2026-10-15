@@ -5,7 +5,8 @@ Description=SemperFix inotify File Integrity Monitor
 After=local-fs.target 
 Wants=local-fs.target  
 
-[Service] 
+[Service]
+Umask=002
 Type=simple 
 User=root
 Group=semperfix
