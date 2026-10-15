@@ -51,7 +51,7 @@ for DIR in "${SFX_DIRS[@]}"; do
     if [ -d "$DIR" ]; then
         echo "[+] Fixing $DIR"
         sudo chown -R root:"$SFX_GROUP" "$DIR"
-        sudo chmod -R 770 "$DIR"
+        sudo chmod -R 775 "$DIR"
     else
         echo "[!] Directory missing: $DIR"
     fi
@@ -62,14 +62,14 @@ done
 # -----------------------------
 echo "[+] Normalizing JSON file permissions in /var/lib/semperfix/state"
 sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chown root:semperfix {} \;
-sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chmod 660 {} \;
+sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chmod 775 {} \;
 
 # -----------------------------
 # Normalize LOG file permissions
 # -----------------------------
 echo "[+] Normalizing LOG file permissions in /opt/semperfix/logs"
 sudo find /opt/semperfix/logs -type f -name "*.log" -exec chown root:semperfix {} \;
-sudo find /opt/semperfix/logs -type f -name "*.log" -exec chmod 660 {} \;
+sudo find /opt/semperfix/logs -type f -name "*.log" -exec chmod 775 {} \;
 
 
 # -----------------------------

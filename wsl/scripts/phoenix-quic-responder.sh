@@ -35,11 +35,11 @@ cat <<'EOF' > "$HANDLER"
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOGFILE="/opt/semperfix/logs/phoenix-quic-responder.log"
+LOGFILE="/opt/semperfix/logs/quic-handler.log"
 PEER="$SOCAT_PEERADDR"
 
 echo "[INFO] Received QUIC probe from ${PEER}" >> "$LOGFILE"
-echo ack | socat -u - UDP-SENDTO:${PEER}:${PORT} >> "$LOGFILE" 2>&1
+echo ack | socat -u - UDP-SENDTO:${PEER}:22001 >> "$LOGFILE" 2>&1
 EOF
 
 chmod +x "$HANDLER"

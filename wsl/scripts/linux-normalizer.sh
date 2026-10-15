@@ -115,17 +115,17 @@ log "Evaluating QUIC responder requirements for node role: ${NODE_ROLE}"
 if [[ "${NODE_ROLE}" == "SECONDARY" ]]; then
     log "Node is SECONDARY — QUIC responder should be active."
 
-    if systemctl is-active --quiet phoenix-quic-responder.service; then
+    if systemctl is-active --quiet semperfix-quic-responder.service; then
         log "QUIC responder service is active."
     else
         log "QUIC responder NOT active — restarting service..."
-        sudo systemctl restart phoenix-quic-responder.service || log "Responder restart failed."
+        sudo systemctl restart semperfix-quic-responder.service || log "Responder restart failed."
     fi
 else
     log "Node is ${NODE_ROLE} — QUIC responder must NOT run here."
 
-    systemctl disable --now phoenix-quic-responder.service 2>/dev/null || true
-    systemctl mask phoenix-quic-responder.service 2>/dev/null || true
+    systemctl disable --now semperfix-quic-responder.service 2>/dev/null || true
+    systemctl mask semperfix-quic-responder.service 2>/dev/null || true
 
     log "QUIC responder disabled and masked on ${NODE_ROLE}."
 fi
