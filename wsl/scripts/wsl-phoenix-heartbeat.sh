@@ -3,37 +3,33 @@ set -euo pipefail
 
 # Phoenix v2 Standard Environment Header
 umask 002
-
-# Ensure consistent locale + predictable JSON behavior
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Ensure logs and state directories exist
-mkdir -p /var/lib/semperfix/state
-mkdir -p /opt/semperfix/logs
+# Directories
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
 
-# Safety: prevent Windows CRLF issues
+mkdir -p "$STATE_DIR" "$LOG_DIR"
+
+HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
+LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
+
+# Safety: prevent CRLF issues
 dos2unix "$0" 2>/dev/null || true
 
-
+# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 
 phoenix_init
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
-LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
-
 log() {
-    phoenix_log_file "INFO" "$*";
+    phoenix_log_file "INFO" "$*"
 }
 
 # ---------- Health Checks ----------
+
 check_api() {
     curl -s -o /dev/null -w "%{http_code}" \
         -H "X-API-Key: $API_KEY" \
@@ -46,11 +42,16 @@ check_syncthing_ready() {
 }
 
 check_peer_connected() {
-    jq -r '.connections | length > 0' "${LOG_DIR}/mesh-handshake.json" 2>/dev/null
+    jq -r '
+        if (.peer_dump.connections | type == "array")
+        then (.peer_dump.connections | length > 0)
+        else false
+        end
+    ' "${STATE_DIR}/mesh-handshake.json" 2>/dev/null
 }
 
 check_quic() {
-    echo "probe" | nc -u -w1 -q1 "$PEER_IP" "$PEER_PORT" 2>/dev/null
+    nc -zvu "$PEER_IP" "$PEER_PORT" 2>/dev/null
 }
 
 check_mesh_ok() {
@@ -62,42 +63,40 @@ check_mesh_ok() {
 }
 
 main() {
-  #  : > "$LOGFILE"
     log "Starting Phoenix v2 Heartbeat for role: ${NODE_ROLE}"
 
-    # Default values
     local api_ok="false"
     local peer_connected="not_applicable"
     local syncthing_ready="false"
     local quic_ok="not_applicable"
     local mesh_ok="not_applicable"
 
-    # Always check API + readiness
+    # API check
     api_ok=$(check_api || echo "false")
     [[ "$api_ok" == "200" ]] && api_ok="true" || api_ok="false"
 
+    # Syncthing readiness
     syncthing_ready=$(check_syncthing_ready || echo "false")
 
     case "$NODE_ROLE" in
-
         MASTERZERO|SECONDARY)
-            # These nodes participate fully in the mesh
             peer_connected=$(check_peer_connected || echo "false")
 
-            local quic_probe
-            quic_probe=$(check_quic || echo "")
-            [[ -n "$quic_probe" ]] && quic_ok="true" || quic_ok="false"
+            if check_quic >/dev/null 2>&1; then
+                quic_ok="true"
+            else
+                quic_ok="false"
+            fi
 
             mesh_ok=$(check_mesh_ok || echo "false")
             ;;
 
         OFFSITE)
-            log "INFO" "OFFSITE heartbeat: limited checks only"
-            # peer_connected, quic_ok, mesh_ok remain "not_applicable"
+            log "OFFSITE heartbeat: limited checks only"
             ;;
 
         *)
-            log "INFO" "Unknown node role: ${NODE_ROLE}"
+            log "Unknown node role: ${NODE_ROLE}"
             ;;
     esac
 
@@ -116,6 +115,5 @@ main() {
 
     log "Heartbeat written to $HEARTBEAT_FILE"
 }
-
 
 main "$@"
