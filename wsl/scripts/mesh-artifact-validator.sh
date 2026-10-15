@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
+#STATE_DIR="/var/lib/semperfix/state"
+#LOG_DIR="/opt/semperfix/logs"
+
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_init
 
 HANDSHAKE="${STATE_DIR}/mesh-handshake.json"
 SUPERVISOR="${STATE_DIR}/phoenix-supervisor.json"

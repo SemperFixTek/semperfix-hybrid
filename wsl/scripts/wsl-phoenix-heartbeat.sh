@@ -109,7 +109,7 @@ main() {
 
     json_finalize "$HEARTBEAT_FILE"
     /opt/semperfix/scripts/json-perms.sh "$HEARTBEAT_FILE"
-    log "Permissions corrected for $HEARTBEAT_FILE
+    log "Permissions corrected for $HEARTBEAT_FILE"
 
 
 
