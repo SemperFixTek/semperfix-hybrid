@@ -6,7 +6,7 @@ After=network-online.target
 Before=semperfix-supervisor.service  
 
 [Service]
-Umask=002
+UMask=002
 Type=oneshot 
 User=root
 Group=semperfix

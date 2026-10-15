@@ -6,7 +6,7 @@ After=local-fs.target
 Wants=local-fs.target  
 
 [Service]
-Umask=002
+UMask=002
 Type=simple 
 User=root
 Group=semperfix

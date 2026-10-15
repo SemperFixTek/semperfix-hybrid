@@ -3,7 +3,7 @@ Description=SemperFix Mesh Activation Coordinator
 After=semperfix-supervisor.service semperfix-network-normalizer.service
 
 [Service]
-Umask=002
+UMask=002
 Type=oneshot
 User=root
 Group=semperfix
