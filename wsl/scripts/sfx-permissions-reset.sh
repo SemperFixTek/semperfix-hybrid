@@ -62,14 +62,14 @@ done
 # -----------------------------
 echo "[+] Normalizing JSON file permissions in /var/lib/semperfix/state"
 sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chown root:semperfix {} \;
-sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chmod 660 {} \;
+sudo find /var/lib/semperfix/state -type f -name "*.json" -exec chmod 755 {} \;
 
 # -----------------------------
 # Normalize LOG file permissions
 # -----------------------------
 echo "[+] Normalizing LOG file permissions in /opt/semperfix/logs"
 sudo find /opt/semperfix/logs -type f -name "*.log" -exec chown root:semperfix {} \;
-sudo find /opt/semperfix/logs -type f -name "*.log" -exec chmod 660 {} \;
+sudo find /opt/semperfix/logs -type f -name "*.log" -exec chmod 755 {} \;
 
 
 # -----------------------------

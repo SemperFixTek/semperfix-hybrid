@@ -8,19 +8,19 @@ echo "[$(date -Iseconds)] Starting permissions normalization..."
 sudo mkdir -p /opt/semperfix/state  
 
 # Ownership — entire tree to sfx:sfx 
-sudo chown -R sfx:sfx /opt/semperfix  
+sudo chown -R root:semperfix /opt/semperfix  
 
 # Directory modes 
-sudo chmod 750 /opt/semperfix 
+sudo chmod 755 /opt/semperfix 
 for dir in scripts config logs reports monitors units state;
-do sudo chmod 750 /opt/semperfix/$dir 
+do sudo chmod 755 /opt/semperfix/$dir 
 done  
 
 # Script files — executable by owner only 
-find /opt/semperfix/scripts -name "*.sh" -exec sudo chmod 740 {} \; 
-find /opt/semperfix/monitors -name "*.sh" -exec sudo chmod 740 {} \;  
+find /opt/semperfix/scripts -name "*.sh" -exec sudo chmod 755 {} \; 
+find /opt/semperfix/monitors -name "*.sh" -exec sudo chmod 755 {} \;  
 
 # Config and log files — readable by group 
-find /opt/semperfix/config -name "*.json" -exec sudo chmod 640 {} \; 
-find /opt/semperfix/logs -name "*.log" -exec sudo chmod 640 {} \;  
+find /opt/semperfix/config -name "*.json" -exec sudo chmod 755 {} \; 
+find /opt/semperfix/logs -name "*.log" -exec sudo chmod 755 {} \;  
 echo "[$(date -Iseconds)] Permissions normalization complete."
