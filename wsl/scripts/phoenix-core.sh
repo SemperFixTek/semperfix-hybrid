@@ -8,20 +8,19 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
+# Safety: prevent Windows CRLF issues
+dos2unix "$0" 2>/dev/null || true
+
+# Define paths to configuration files
+CONFIG_DIR="/opt/semperfix/config"
+CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
+CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
+
 # Ensure logs and state directories exist
 mkdir -p /var/lib/semperfix/state
 mkdir -p /opt/semperfix/logs
 
-# Safety: prevent Windows CRLF issues
-dos2unix "$0" 2>/dev/null || true
-
-
-CONFIG_DIR="/opt/semperfix/config"
-CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
-CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
-#PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // 22001' "$CONFIG_JSON")
-
-
+# ---------- Load Phoenix core + JSON helpers ----------
 phoenix_error() {
     local message="$1"
     local code="${2:-1}"
@@ -53,7 +52,6 @@ phoenix_log_file() {
         printf "[%s] %s\n" "$level" "$message" >> "$PHOENIX_LOGFILE" 2>/dev/null || true
     fi
 }
-
 
 phoenix_debug() {
     local message="$1"

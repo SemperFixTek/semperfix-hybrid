@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phoenix v2 Standard Environment Header
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Ensure logs and state directories exist
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-SUP_FILE="${STATE_DIR}/phoenix-supervisor.json"
-LOGFILE="${LOG_DIR}/phoenix-supervisor.log"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
-
-# Convert CRLF if needed
+# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
 # Load Phoenix core + JSON utilities
@@ -23,11 +14,11 @@ source /opt/semperfix/scripts/phoenix-json.sh
 
 phoenix_init
 
-# Use core logging function
+SUP_FILE="${STATE_DIR}/phoenix-supervisor.json"
+LOGFILE="${LOG_DIR}/phoenix-supervisor.log"
+
 PHOENIX_LOGFILE="$LOGFILE"
-log() {
-    phoenix_log_file "INFO" "$*";
-}
+log() { phoenix_log_file "INFO" "$*"; }
 
 run_handshake() {
     /opt/semperfix/scripts/wsl-mesh-handshake.sh
@@ -98,6 +89,9 @@ main() {
     json_set "$SUP_FILE" "activate" "$activate_status"
 
     json_finalize "$SUP_FILE"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$SUP_FILE"
 
     log "Supervisor state written to $SUP_FILE"
 }

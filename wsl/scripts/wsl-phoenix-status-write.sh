@@ -5,12 +5,10 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON utilities
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -25,8 +23,8 @@ log() { phoenix_log_file "INFO" "$*"; }
 safe_field() {
     local file="$1"
     local field="$2"
-    local val
 
+    local val
     val=$(jq -r "$field // \"not_applicable\"" "$file" 2>/dev/null || echo "not_applicable")
 
     case "$val" in
@@ -56,16 +54,19 @@ write_status() {
 
     json_init "$STATUS_FILE"
 
+    # meta block
     json_set_raw "$STATUS_FILE" "meta" "$(jq -n \
         --arg ts "$timestamp" \
         '{version:"2.0", generated_by:"phoenix-status-write", timestamp:$ts}')"
 
+    # node block
     json_set_raw "$STATUS_FILE" "node" "$(jq -n \
         --arg role "$NODE_ROLE" \
         --arg api "$API_URL" \
         --arg peer "${PEER_IP}:${PEER_PORT}" \
         '{role:$role, api_url:$api, peer_target:$peer}')"
 
+    # health block
     json_set_raw "$STATUS_FILE" "health" "$(jq -n \
         --arg api_ok "$api_ok" \
         --arg peer_connected "$peer_connected" \
@@ -74,6 +75,7 @@ write_status() {
         --arg mesh_ok "$mesh_ok" \
         '{api_ok:$api_ok, peer_connected:$peer_connected, syncthing_ready:$syncthing_ready, quic_ok:$quic_ok, mesh_ok:$mesh_ok}')"
 
+    # supervisor block
     json_set_raw "$STATUS_FILE" "supervisor" "$(jq -n \
         --arg handshake "$(jq -r '.handshake // "unknown"' "$SUP_JSON")" \
         --arg verify "$(jq -r '.verify // "unknown"' "$SUP_JSON")" \
@@ -81,6 +83,9 @@ write_status() {
         '{handshake:$handshake, verify:$verify, activate:$activate}')"
 
     json_finalize "$STATUS_FILE"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"
 
     log "Phoenix status written to $STATUS_FILE"
 }

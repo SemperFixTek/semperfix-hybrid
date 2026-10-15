@@ -6,15 +6,6 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Directories
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
-
-HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
-LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
-
 # Safety: prevent CRLF issues
 dos2unix "$0" 2>/dev/null || true
 
@@ -23,6 +14,10 @@ source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 
 phoenix_init
+
+# Directories
+HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
+LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
 
 log() {
     phoenix_log_file "INFO" "$*"
@@ -86,6 +81,7 @@ main() {
                 quic_ok="true"
             else
                 quic_ok="false"
+                log "QUIC probe failed for $PEER_IP:$PEER_PORT"
             fi
 
             mesh_ok=$(check_mesh_ok || echo "false")
@@ -112,6 +108,11 @@ main() {
     json_set "$HEARTBEAT_FILE" "mesh_ok" "$mesh_ok"
 
     json_finalize "$HEARTBEAT_FILE"
+    /opt/semperfix/scripts/json-perms.sh "$HEARTBEAT_FILE"
+    log "Permissions corrected for $HEARTBEAT_FILE
+
+
+
 
     log "Heartbeat written to $HEARTBEAT_FILE"
 }

@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATUS_FILE="/var/lib/semperfix/state/phoenix-status.json"
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# Normalize line endings
+dos2unix "$0" 2>/dev/null || true
+
+# Load Phoenix core
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_init
+
+STATUS_FILE="${STATE_DIR}/phoenix-status.json"
 
 fail() {
     echo "[FAIL] $1"
@@ -20,7 +31,7 @@ jq . "$STATUS_FILE" >/dev/null 2>&1 || fail "Invalid JSON format"
 
 # ---------- Required top-level objects ----------
 for obj in meta node health supervisor; do
-    jq -e ".${obj} | objects" "$STATUS_FILE" >/dev/null 2>&1 \
+    jq -e ".${obj} | type == \"object\"" "$STATUS_FILE" >/dev/null 2>&1 \
         || fail "Missing or invalid object: .${obj}"
 done
 

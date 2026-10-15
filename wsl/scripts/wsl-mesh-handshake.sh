@@ -5,12 +5,10 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Safety: prevent CRLF issues
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -21,12 +19,6 @@ JSON_OUT="${STATE_DIR}/mesh-handshake.json"
 # Use core logging
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
-
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
 
 check_quic() {
     log "Checking QUIC reachability to ${PEER_IP}:${PEER_PORT}"
@@ -80,6 +72,7 @@ main() {
             check_syncthing_api
             check_quic
             dump_peers
+            json_set "$JSON_OUT" "handshake_status" "pass"
             ;;
 
         SECONDARY)
@@ -87,23 +80,29 @@ main() {
             check_syncthing_api
             dump_peers
             json_set "$JSON_OUT" "quic_status" "handled_by_responder"
+            json_set "$JSON_OUT" "handshake_status" "pass"
             ;;
 
         OFFSITE)
             log "OFFSITE performing observer-only handshake"
             check_syncthing_api
             json_set "$JSON_OUT" "quic_status" "not_applicable"
-            json_set "$JSON_OUT" "peer_dump" "not_applicable"
+            json_set_raw "$JSON_OUT" "peer_dump" "null"
+            json_set "$JSON_OUT" "handshake_status" "pass"
             ;;
 
         *)
             log "Unknown node role: ${NODE_ROLE}"
             json_set "$JSON_OUT" "error" "invalid_node_role"
+            json_set "$JSON_OUT" "handshake_status" "fail"
             ;;
     esac
 
     log "Handshake diagnostics complete"
     json_finalize "$JSON_OUT"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$JSON_OUT"
 }
 
 main "$@"

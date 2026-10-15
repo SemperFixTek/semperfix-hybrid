@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
 
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 LOGFILE="${LOG_DIR}/mesh-listener.log"
-STATUS_JSON="${STATE_DIR}/mesh-status.json"
+STATUS_JSON="${STATE_DIR}/mesh-listener.json"
 
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
@@ -28,6 +30,9 @@ write_state() {
     json_set "$STATUS_JSON" "syncthing_reachable" "$1"
     json_set "$STATUS_JSON" "quic_reachable" "$2"
     json_finalize "$STATUS_JSON"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
 }
 
 check_syncthing() {

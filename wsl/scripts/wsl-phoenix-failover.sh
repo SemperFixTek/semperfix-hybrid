@@ -5,22 +5,19 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON utilities
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 # --- ROLE GUARD ---
 if [[ "$NODE_ROLE" != "MASTERZERO" ]]; then
-    log "Failover logic disabled for role: ${NODE_ROLE}"
+    phoenix_log_file "INFO" "Failover logic disabled for role: ${NODE_ROLE}"
     exit 0
 fi
-
 
 FAILOVER_FILE="${STATE_DIR}/phoenix-failover.json"
 HB_FILE="${STATE_DIR}/phoenix-heartbeat.json"
@@ -32,13 +29,13 @@ log() { phoenix_log_file "INFO" "$*"; }
 safe_bool() {
     local file="$1"
     local field="$2"
-    local val
 
+    local val
     val=$(jq -r "$field // \"not_applicable\"" "$file" 2>/dev/null || echo "not_applicable")
 
     case "$val" in
         true|false) echo "$val" ;;
-        *) echo "false" ;;   # failover logic treats anything non-true as false
+        *) echo "false" ;;   # treat anything non-true as false
     esac
 }
 
@@ -70,18 +67,17 @@ main() {
             local failover_needed
             failover_needed=$(should_failover)
 
-            json_set_raw "$FAILOVER_FILE" "failover_needed" "$failover_needed"
+            # failover_needed is a boolean string, so use json_set (string)
+            json_set "$FAILOVER_FILE" "failover_needed" "$failover_needed"
             ;;
 
         SECONDARY)
             log "SECONDARY does not evaluate failover — MASTERZERO decides"
-
             json_set "$FAILOVER_FILE" "failover_needed" "handled_by_master"
             ;;
 
         OFFSITE)
             log "OFFSITE does not participate in failover logic"
-
             json_set "$FAILOVER_FILE" "failover_needed" "not_applicable"
             ;;
 
@@ -92,6 +88,10 @@ main() {
     esac
 
     json_finalize "$FAILOVER_FILE"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$FAILOVER_FILE"
+
     log "Failover state written to $FAILOVER_FILE"
 }
 

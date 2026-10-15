@@ -5,12 +5,10 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON utilities
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -42,7 +40,11 @@ check_connections() {
 
     printf "%s\n" "$matrix" >> "$STATUS_LOG"
 
-    if [[ "$matrix" == *"connected\": true"* ]]; then
+    # Correct jq-based evaluation
+    local connected
+    connected=$(jq -r '.connections | length > 0' <<< "$matrix" 2>/dev/null || echo "false")
+
+    if [[ "$connected" == "true" ]]; then
         log "Peer connected"
         json_set "$STATUS_JSON" "peer_connected" "true"
     else
@@ -80,6 +82,9 @@ main() {
 
     log "Mesh status complete"
     json_finalize "$STATUS_JSON"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
 }
 
 main "$@"

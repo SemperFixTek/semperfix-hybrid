@@ -5,12 +5,10 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Safety: prevent CRLF issues
 dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -29,7 +27,11 @@ verify_connections() {
 
     printf "%s\n" "$matrix" >> "$LOGFILE"
 
-    if [[ "$matrix" == *"connected\": true"* ]]; then
+    # jq-based check instead of brittle string matching
+    local connected
+    connected=$(jq -r '.connections | length > 0' <<< "$matrix")
+
+    if [[ "$connected" == "true" ]]; then
         log "At least one peer is connected"
         json_set "$JSON_OUT" "peer_connected" "true"
         return 0
@@ -48,7 +50,10 @@ verify_device_ids() {
 
     printf "%s\n" "$devices" >> "$LOGFILE"
 
-    if [[ "$devices" == *"myID"* ]]; then
+    local has_id
+    has_id=$(jq -r '.myID != null' <<< "$devices")
+
+    if [[ "$has_id" == "true" ]]; then
         log "Device ID present"
         json_set "$JSON_OUT" "device_id_present" "true"
         return 0
@@ -67,7 +72,17 @@ verify_folders() {
 
     printf "%s\n" "$folders" >> "$LOGFILE"
 
-    if [[ "$folders" == *"state\": \"idle\""* ]]; then
+    # FIXED: Proper jq evaluation of folder states
+    local all_idle
+    all_idle=$(jq -r '
+        if (type == "array") then
+            ([ .[].state ] | all(. == "idle"))
+        else
+            false
+        end
+    ' <<< "$folders")
+
+    if [[ "$all_idle" == "true" ]]; then
         log "Folders idle and healthy"
         json_set "$JSON_OUT" "folder_health" "healthy"
         return 0
@@ -93,6 +108,7 @@ main() {
             verify_connections
             verify_device_ids
             verify_folders
+            json_set "$JSON_OUT" "verify_status" "pass"
             ;;
 
         OFFSITE)
@@ -100,16 +116,21 @@ main() {
             verify_device_ids
             json_set "$JSON_OUT" "peer_connected" "not_applicable"
             json_set "$JSON_OUT" "folder_health" "not_applicable"
+            json_set "$JSON_OUT" "verify_status" "pass"
             ;;
 
         *)
             log "Unknown node role: ${NODE_ROLE}"
             json_set "$JSON_OUT" "error" "invalid_node_role"
+            json_set "$JSON_OUT" "verify_status" "fail"
             ;;
     esac
 
     log "Mesh verification complete"
     json_finalize "$JSON_OUT"
+
+    # Fix permissions for Syncthing + Windows
+    /opt/semperfix/scripts/json-perms.sh "$JSON_OUT"
 }
 
 main "$@"
