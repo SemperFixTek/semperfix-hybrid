@@ -1,0 +1,16 @@
+[Unit]
+Description=SemperFix Phoenix v2 Heartbeat
+Documentation=/opt/semperfix/docs/phoenix-heartbeat.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh
+User=root
+Group=semperfix
+
+ExecStartPre=/usr/bin/flock -n /opt/semperfix/state/.heartbeat.lock -c true
+
+[Install]
+WantedBy=semperfix.target

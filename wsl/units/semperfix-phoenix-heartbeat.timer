@@ -1,0 +1,10 @@
+[Unit]
+Description=Run SemperFix Phoenix Heartbeat Every Minute
+
+[Timer]
+OnCalendar=*:0/1
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=semperfix.target
