@@ -9,6 +9,8 @@ Type=oneshot
 ExecStart=/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh
 User=root
 Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/heartbeat.log
+StandardError=append:/opt/semperfix/logs/heartbeat.log
 
 ExecStartPre=/usr/bin/flock -n /opt/semperfix/state/.heartbeat.lock -c true
 
