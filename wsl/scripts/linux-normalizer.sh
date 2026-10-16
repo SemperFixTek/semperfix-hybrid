@@ -70,7 +70,7 @@ log "WSL IP exported for Windows-side scripts: ${WSL_IP}"
 # ---------------------------------------------------------
 # 3. Ensure default route exists
 # ---------------------------------------------------------
-GATEWAY="${GATEWAY_IP:-192.168.1.1}"
+GATEWAY="${GATEWAY_IP}"
 
 if ip route show default 2>/dev/null | grep -q "${GATEWAY}"; then
     log "Default route OK via ${GATEWAY}"
