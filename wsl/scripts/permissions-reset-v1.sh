@@ -1,5 +1,5 @@
 #!/bin/bash 
-# /opt/semperfix/scripts/permissions-normalizer.sh 
+# /opt/semperfix/scripts/permissions-reset-v1.sh 
 set -euo pipefail  
 
 echo "[$(date -Iseconds)] Starting permissions normalization..."  

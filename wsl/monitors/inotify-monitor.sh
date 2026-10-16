@@ -5,15 +5,14 @@
 
 set -euo pipefail
 
-# Phoenix v2 Standard Header
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-STATE_DIR="/var/lib/semperfix/state"
-LOG_DIR="/opt/semperfix/logs"
-mkdir -p "$STATE_DIR" "$LOG_DIR"
+# Normalize line endings
+dos2unix "$0" 2>/dev/null || true
 
+# Load Phoenix core
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
@@ -24,9 +23,6 @@ log()   { phoenix_log_file "INFO" "$*"; }
 alert() { echo "[$(date -Iseconds)] [ALERT] $*" | tee -a "$ALERT_LOG" "$PHOENIX_LOGFILE"; }
 
 # --- ROLE GUARD ---
-# MASTERZERO = full monitoring
-# SECONDARY  = optional monitoring
-# OFFSITE    = disabled
 if [[ "$NODE_ROLE" == "OFFSITE" ]]; then
     log "inotify-monitor disabled for OFFSITE role"
     exit 0
@@ -49,14 +45,9 @@ PROTECTED_FILES=(
 )
 
 # --- EVENT FILTERING ---
-# Only log meaningful events:
-#   modify, create, delete, move
-# Ignore:
-#   attrib, open, close, access
 EVENTS="modify,create,delete,move"
 
 # --- RATE LIMITING ---
-# Prevent log spam by suppressing repeated events within 2 seconds
 LAST_EVENT_FILE="/tmp/inotify-last-event"
 touch "$LAST_EVENT_FILE"
 

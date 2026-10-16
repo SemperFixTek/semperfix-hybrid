@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== SemperFix Permissions Reset Script ==="
+echo "=== SemperFix Permissions Normalizer Script ==="
 
 # -----------------------------
 # CONFIG
