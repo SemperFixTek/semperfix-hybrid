@@ -8,9 +8,8 @@ Type=oneshot
 User=root
 Group=semperfix
 ExecStart=/opt/semperfix/scripts/wsl-mesh-activate.sh
-Restart=no
-StandardOutput=append:/opt/semperfix/logs/mesh.log
-StandardError=append:/opt/semperfix/logs/mesh.log
+StandardOutput=append:/opt/semperfix/logs/activate.log
+StandardError=append:/opt/semperfix/logs/activate.log
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=multi-user.target

@@ -17,5 +17,4 @@ StandardOutput=append:/opt/semperfix/logs/inotify.log
 StandardError=append:/opt/semperfix/logs/inotify.log  
 
 [Install] 
-WantedBy=semperfix.target
-
+WantedBy=multi-user.target

@@ -2,9 +2,9 @@
 Description=Run SemperFix Phoenix Heartbeat Every Minute
 
 [Timer]
-OnCalendar=*:0/1
-AccuracySec=10s
-Persistent=true
+OnBootSec=20s
+OnUnitActiveSec=30s
+Unit=semperfix-phoenix-heartbeat.service
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=timers.target

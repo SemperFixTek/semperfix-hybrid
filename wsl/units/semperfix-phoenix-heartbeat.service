@@ -1,6 +1,5 @@
 [Unit]
 Description=SemperFix Phoenix v2 Heartbeat
-Documentation=/opt/semperfix/docs/phoenix-heartbeat.md
 Wants=network-online.target
 After=network-online.target
 
@@ -16,4 +15,4 @@ StandardError=append:/opt/semperfix/logs/heartbeat.log
 ExecStartPre=/usr/bin/flock -n /opt/semperfix/state/.heartbeat.lock -c true
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=multi-user.target

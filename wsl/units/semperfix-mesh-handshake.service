@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix Mesh Handshake
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/wsl-mesh-handshake.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/handshake.log
+StandardError=append:/opt/semperfix/logs/handshake.log
+
+[Install]
+WantedBy=multi-user.target

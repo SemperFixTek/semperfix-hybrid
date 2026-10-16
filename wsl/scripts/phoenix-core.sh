@@ -90,10 +90,9 @@ phoenix_load_config() {
         API_URL=$(jq -r '.syncthing.api_url // empty' "$CONFIG_JSON")
         API_KEY=$(jq -r '.syncthing.api_key // empty' "$CONFIG_JSON")
         NODE_IP=$(jq -r '.node.node_ip // empty' "$CONFIG_JSON")
-
-            if ! printf '%s\n' "$NODE_IP" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-                phoenix_error "node.node_ip is not a valid IPv4 address: $NODE_IP"
-            fi
+        GATEWAY_IP=$(jq -r '.node.gateway_ip // empty' "$CONFIG_JSON")
+        DNS1=$(jq -r '.node.dns1 // empty' "$CONFIG_JSON")
+        DNS2=$(jq -r '.node.dns2 // empty' "$CONFIG_JSON")
 
         PEER_IP=$(jq -r '.syncthing.peer_ip // empty' "$CONFIG_JSON")
         PEER_PORT=$(jq -r '.syncthing.peer_port // empty' "$CONFIG_JSON")
@@ -107,6 +106,9 @@ phoenix_load_config() {
     [[ -z "$NODE_ROLE" ]] && phoenix_error "Missing node.role in phoenix.json"
     [[ -z "$HOSTNAME" ]] && phoenix_error "Missing node.hostname in phoenix.json"
     [[ -z "$NODE_IP" ]] && phoenix_error "Missing node.node_ip in phoenix.json"
+    [[ -z "$GATEWAY_IP" ]] && phoenix_error "Missing node.gateway_ip in phoenix.json"
+    [[ -z "$DNS1" ]] && phoenix_error "Missing node.dns1 in phoenix.json"
+    [[ -z "$DNS2" ]] && phoenix_error "Missing node.dns2 in phoenix.json"
 
     [[ -z "$STATE_DIR" ]] && phoenix_error "Missing node.state_dir in phoenix.json"
     [[ -z "$LOG_DIR" ]] && phoenix_error "Missing node.log_dir in phoenix.json"
@@ -124,8 +126,8 @@ phoenix_load_config() {
     mkdir -p "$STATE_DIR" "$LOG_DIR"
 
     # ---------- Export unified variables ----------
-    export NODE_ROLE HOSTNAME
-    export NODE_IP
+    export NODE_ROLE HOSTNAME 
+    export NODE_IP GATEWAY_IP DNS1 DNS2
     export STATE_DIR LOG_DIR
     export API_URL API_KEY
     export PEER_IP PEER_PORT

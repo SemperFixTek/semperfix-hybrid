@@ -3,13 +3,17 @@
     "role": "SECONDARY",
     "hostname": "secondary",
     "state_dir": "/var/lib/semperfix/state",
-    "log_dir": "/opt/semperfix/logs"
+    "log_dir": "/opt/semperfix/logs",
+    "node_ip": "192.168.1.130",
+    "gateway_ip": "192.168.1.1",
+    "dns1": "1.1.1.1",
+    "dns2": "1.0.0.1"
   },
 
   "syncthing": {
-    "api_url": "http://192.168.1.101:8384/rest",
+    "api_url": "http://192.168.1.120:8384/rest",
     "api_key": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
-    "peer_ip": "10.10.10.1",
+    "peer_ip": "10.10.10.120",
     "peer_port": 22000
   },
 

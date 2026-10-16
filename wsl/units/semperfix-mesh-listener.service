@@ -15,4 +15,4 @@ StandardOutput=append:/opt/semperfix/logs/mesh-listener.log
 StandardError=append:/opt/semperfix/logs/mesh-listener.log
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=multi-user.target

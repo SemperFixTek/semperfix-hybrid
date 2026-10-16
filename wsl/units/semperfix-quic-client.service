@@ -5,14 +5,12 @@ Wants=network-online.target
 
 [Service]
 UMask=002
-Type=simple
+Type=oneshot
 User=root
 Group=semperfix
 ExecStart=/opt/semperfix/scripts/phoenix-quic-client.sh
-Restart=always
-RestartSec=5
 StandardOutput=append:/opt/semperfix/logs/quic-client.log
 StandardError=append:/opt/semperfix/logs/quic-client.log
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=multi-user.target

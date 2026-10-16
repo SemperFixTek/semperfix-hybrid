@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix Descalate Log Snapshot
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/phoenix-descalate.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/descalate.log
+StandardError=append:/opt/semperfix/logs/descalate.log
+
+[Install]
+WantedBy=multi-user.target

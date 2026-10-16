@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix Failover Evaluator
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/phoenix-failover.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/failover.log
+StandardError=append:/opt/semperfix/logs/failover.log
+
+[Install]
+WantedBy=multi-user.target

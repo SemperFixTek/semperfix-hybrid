@@ -8,29 +8,25 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-mkdir -p /var/lib/semperfix/state
-mkdir -p /opt/semperfix/logs
+# Phoenix v2 directories
+source /opt/semperfix/scripts/phoenix-core.sh
+phoenix_load_config
+
+mkdir -p "${STATE_DIR}"
+mkdir -p "${LOG_DIR}"
 
 dos2unix "$0" 2>/dev/null || true
 
-LOG="/opt/semperfix/logs/linux-normalizer.log"
+LOG="${LOG_DIR}/linux-normalizer.log"
 
 log() {
     echo "[INFO] $1" | tee -a "$LOG"
 }
 
-CONFIG_DIR="/opt/semperfix/config"
-CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
-CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
-
-# shellcheck disable=SC1090
-source /opt/semperfix/scripts/phoenix-core.sh
-phoenix_load_config
-
 log "SemperFix Linux Normalizer starting for node role: ${NODE_ROLE}"
 
-DNS="1.1.1.1"
-DNS2="1.0.0.1"
+DNS="${DNS1}"
+DNS2="${DNS2}"
 
 # ---------------------------------------------------------
 # 1. Determine primary interface (default route)
@@ -67,15 +63,14 @@ fi
 # 2b. Export WSL IP for Windows-side scripts
 # ---------------------------------------------------------
 WSL_IP=$(hostname -I | awk '{print $1}')
-echo "$WSL_IP" > /opt/semperfix/state/wsl-ip.txt
-echo "[$(date -Iseconds)] WSL IP normalized: $WSL_IP" >> /opt/semperfix/logs/network.log
+echo "$WSL_IP" > "${STATE_DIR}/wsl-ip.txt"
+echo "[$(date -Iseconds)] WSL IP normalized: $WSL_IP" >> "${LOG_DIR}/network.log"
 log "WSL IP exported for Windows-side scripts: ${WSL_IP}"
-
 
 # ---------------------------------------------------------
 # 3. Ensure default route exists
 # ---------------------------------------------------------
-GATEWAY="${PHOENIX_GATEWAY:-192.168.1.1}"
+GATEWAY="${GATEWAY_IP:-192.168.1.1}"
 
 if ip route show default 2>/dev/null | grep -q "${GATEWAY}"; then
     log "Default route OK via ${GATEWAY}"
@@ -85,7 +80,7 @@ else
 fi
 
 # ---------------------------------------------------------
-# 4. Firewall rules (role-aware)
+# 4. Firewall rules (role-aware, non-destructive)
 # ---------------------------------------------------------
 if command -v ufw >/dev/null 2>&1; then
     log "Evaluating firewall rules for node role: ${NODE_ROLE}"
@@ -99,8 +94,8 @@ if command -v ufw >/dev/null 2>&1; then
         sudo ufw status | grep -q "22001/udp" || sudo ufw allow 22001/udp >/dev/null 2>&1
         log "Firewall rules ensured for SECONDARY."
     else
-        # MASTERZERO + OFFSITE — remove Phoenix QUIC if present
-        sudo ufw delete allow 22001/udp >/dev/null 2>&1 || true
+        # MASTERZERO + OFFSITE — deny QUIC responder port without deleting rules
+        sudo ufw deny 22001/udp >/dev/null 2>&1 || true
         log "Firewall rules pruned for ${NODE_ROLE}."
     fi
 else
@@ -108,7 +103,7 @@ else
 fi
 
 # ---------------------------------------------------------
-# 5. QUIC responder (role-aware)
+# 5. QUIC responder (role-aware, non-destructive)
 # ---------------------------------------------------------
 log "Evaluating QUIC responder requirements for node role: ${NODE_ROLE}"
 
@@ -124,10 +119,10 @@ if [[ "${NODE_ROLE}" == "SECONDARY" ]]; then
 else
     log "Node is ${NODE_ROLE} — QUIC responder must NOT run here."
 
-    systemctl disable --now semperfix-quic-responder.service 2>/dev/null || true
-    systemctl mask semperfix-quic-responder.service 2>/dev/null || true
+    sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
+    sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
 
-    log "QUIC responder disabled and masked on ${NODE_ROLE}."
+    log "QUIC responder disabled for ${NODE_ROLE}."
 fi
 
 # ---------------------------------------------------------
@@ -146,7 +141,7 @@ else
 fi
 
 # ---------------------------------------------------------
-# 7. WSL2 awareness (no destructive edits)
+# 7. WSL2 awareness (non-destructive)
 # ---------------------------------------------------------
 if grep -q "WSL" /proc/version; then
     log "WSL detected — verifying config persistence policy."

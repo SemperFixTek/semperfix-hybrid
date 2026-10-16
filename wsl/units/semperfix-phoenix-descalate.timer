@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix Descalate Timer
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=120s
+Unit=semperfix-phoenix-descalate.service
+
+[Install]
+WantedBy=timers.target

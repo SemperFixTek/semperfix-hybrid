@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix Status Writer
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/phoenix-status-write.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/status-write.log
+StandardError=append:/opt/semperfix/logs/status-write.log
+
+[Install]
+WantedBy=multi-user.target

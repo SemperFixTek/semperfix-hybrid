@@ -9,10 +9,10 @@ Type=simple
 User=root
 Group=semperfix
 ExecStart=/opt/semperfix/scripts/phoenix-quic-responder.sh
-Restart=always
-RestartSec=5
+Restart=always 
+RestartSec=5 
 StandardOutput=append:/opt/semperfix/logs/quic-responder.log
 StandardError=append:/opt/semperfix/logs/quic-responder.log
 
 [Install]
-WantedBy=semperfix.target
+WantedBy=multi-user.target
