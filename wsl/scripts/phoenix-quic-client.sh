@@ -5,10 +5,8 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
-# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -56,20 +54,17 @@ write_state() {
     json_set "$STATUS_JSON" "latency_ms" "$2"
     json_finalize "$STATUS_JSON"
 
-    # Fix permissions for Syncthing + Windows
     /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
 }
 
-log "Phoenix QUIC Client starting (${NODE_ROLE})"
+log "Phoenix QUIC Client running once (${NODE_ROLE})"
 log "Target: ${QUIC_IP}:${QUIC_PORT}"
 
-while true; do
-    quic_ok=$(check_quic)
-    latency=$(measure_latency)
+quic_ok=$(check_quic)
+latency=$(measure_latency)
 
-    log "QUIC=${quic_ok}  Latency=${latency}ms"
+log "QUIC=${quic_ok}  Latency=${latency}ms"
 
-    write_state "$quic_ok" "$latency"
+write_state "$quic_ok" "$latency"
 
-    sleep 5
-done
+exit 0
