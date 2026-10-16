@@ -12,7 +12,5 @@ Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/heartbeat.log
 StandardError=append:/opt/semperfix/logs/heartbeat.log
 
-ExecStartPre=/usr/bin/flock -n /opt/semperfix/state/.heartbeat.lock -c true
-
 [Install]
 WantedBy=multi-user.target

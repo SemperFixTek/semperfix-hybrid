@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix Status Writer Timer
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+Unit=semperfix-phoenix-status-write.service
+
+[Install]
+WantedBy=timers.target

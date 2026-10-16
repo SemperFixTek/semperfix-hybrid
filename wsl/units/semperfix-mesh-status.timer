@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix Mesh Status Timer
+
+[Timer]
+OnBootSec=25s
+OnUnitActiveSec=30s
+Unit=semperfix-mesh-status.service
+
+[Install]
+WantedBy=timers.target

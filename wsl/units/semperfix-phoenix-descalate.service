@@ -4,7 +4,7 @@ Description=Phoenix Descalate Log Snapshot
 [Service]
 Type=oneshot
 UMask=002
-ExecStart=/opt/semperfix/scripts/phoenix-descalate.sh
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-descalate.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/descalate.log

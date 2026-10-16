@@ -4,7 +4,7 @@ Description=Phoenix Status Writer
 [Service]
 Type=oneshot
 UMask=002
-ExecStart=/opt/semperfix/scripts/phoenix-status-write.sh
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-status-write.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/status-write.log

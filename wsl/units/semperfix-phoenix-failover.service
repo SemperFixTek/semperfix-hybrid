@@ -4,7 +4,7 @@ Description=Phoenix Failover Evaluator
 [Service]
 Type=oneshot
 UMask=002
-ExecStart=/opt/semperfix/scripts/phoenix-failover.sh
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-failover.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/failover.log
