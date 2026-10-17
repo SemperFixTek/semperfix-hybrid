@@ -38,12 +38,13 @@ check_syncthing_ready() {
 
 check_peer_connected() {
     jq -r '
-        if (.peer_dump.connections | type == "array")
-        then (.peer_dump.connections | length > 0)
+        if (.peer_dump.connections | type == "object")
+        then (.peer_dump.connections | to_entries | map(.value.connected) | any)
         else false
         end
     ' "${STATE_DIR}/mesh-handshake.json" 2>/dev/null
 }
+
 
 check_quic() {
     nc -zvu "$PEER_IP" "$PEER_PORT" 2>/dev/null
