@@ -78,16 +78,29 @@ try {
 }
 
 # ---------------------------------------------------------
-# Windows IP
+# Windows IP (LAN IP via default route)
 # ---------------------------------------------------------
 try {
-    $windows_ip = (Get-NetIPAddress -AddressFamily IPv4 |
-                   Where-Object { $_.InterfaceAlias -notlike "*Loopback*" -and $_.IPAddress -notlike "169.254.*" } |
-                   Select-Object -First 1 -ExpandProperty IPAddress)
+    # Find the interface index that owns the default IPv4 route
+    $defaultRoute = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix "0.0.0.0/0" |
+                    Sort-Object -Property RouteMetric |
+                    Select-Object -First 1
+
+    if ($defaultRoute -and $defaultRoute.InterfaceIndex) {
+        $windows_ip = Get-NetIPAddress -AddressFamily IPv4 |
+                      Where-Object { $_.InterfaceIndex -eq $defaultRoute.InterfaceIndex -and $_.IPAddress -notlike "169.254.*" } |
+                      Select-Object -First 1 -ExpandProperty IPAddress
+    } else {
+        Log "No default route found for IPv4 — falling back to first non-loopback IP"
+        $windows_ip = Get-NetIPAddress -AddressFamily IPv4 |
+                      Where-Object { $_.InterfaceAlias -notlike "*Loopback*" -and $_.IPAddress -notlike "169.254.*" } |
+                      Select-Object -First 1 -ExpandProperty IPAddress
+    }
 } catch {
     Log "Windows IP detection failed: $_"
     $windows_ip = $null
 }
+
 
 # ---------------------------------------------------------
 # WSL IP (from WSL, not UNC)
