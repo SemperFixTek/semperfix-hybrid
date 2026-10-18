@@ -11,7 +11,7 @@ phoenix_init
 
 PROMOTE_STATE_JSON="${STATE_DIR}/phoenix-promote.json"
 FAILOVER_JSON="${STATE_DIR}/phoenix-failover.json"
-LOGFILE="${LOG_DIR}/phoenix-promote.log}"
+LOGFILE="${LOG_DIR}/phoenix-promote.log"
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
