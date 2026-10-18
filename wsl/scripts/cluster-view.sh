@@ -79,6 +79,7 @@ json_set "$CLUSTER_JSON" "secondary.wsl.failover" "$sec_failover"
 json_set "$CLUSTER_JSON" "secondary.windows.heartbeat" "$sec_win_heartbeat"
 
 json_finalize "$CLUSTER_JSON"
+/opt/semperfix/scripts/json-perms.sh "$CLUSTER_JSON"
 log "Cluster-wide JSON written to $CLUSTER_JSON"
 
 # ---------------------------------------------------------
