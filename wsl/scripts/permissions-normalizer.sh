@@ -43,6 +43,8 @@ SFX_DIRS=(
     "/opt/semperfix/units"
     "/opt/semperfix/config"
     "/opt/semperfix/state"
+    "/opt/semperfix/dashboard"
+    "/opt/semperfix/dashboard/templates"
     "/var/lib/semperfix"
     "/var/lib/semperfix/state"
 )
