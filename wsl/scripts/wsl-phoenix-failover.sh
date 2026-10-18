@@ -5,94 +5,94 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Normalize line endings
-dos2unix "$0" 2>/dev/null || true
-
-# Load Phoenix core + JSON utilities
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
-# --- ROLE GUARD ---
-if [[ "$NODE_ROLE" != "MASTERZERO" ]]; then
-    phoenix_log_file "INFO" "Failover logic disabled for role: ${NODE_ROLE}"
-    exit 0
-fi
-
-FAILOVER_FILE="${STATE_DIR}/phoenix-failover.json"
-HB_FILE="${STATE_DIR}/phoenix-heartbeat.json"
+FAILOVER_JSON="${STATE_DIR}/phoenix-failover.json"
 LOGFILE="${LOG_DIR}/phoenix-failover.log"
-
 PHOENIX_LOGFILE="$LOGFILE"
+
 log() { phoenix_log_file "INFO" "$*"; }
 
-safe_bool() {
-    local file="$1"
-    local field="$2"
+# ---------------------------------------------------------
+# Health checks
+# ---------------------------------------------------------
 
-    local val
-    val=$(jq -r "$field // \"not_applicable\"" "$file" 2>/dev/null || echo "not_applicable")
+is_heartbeat_stale() {
+    local ts
+    ts=$(jq -r '."timestamp"' "${STATE_DIR}/phoenix-heartbeat.json" 2>/dev/null || echo "")
+    [[ -z "$ts" ]] && echo "true" && return
 
-    case "$val" in
-        true|false) echo "$val" ;;
-        *) echo "false" ;;   # treat anything non-true as false
-    esac
+    local now epoch_ts
+    now=$(date +%s)
+    epoch_ts=$(date -d "$ts" +%s 2>/dev/null || echo 0)
+
+    (( now - epoch_ts > 60 )) && echo "true" || echo "false"
 }
 
-should_failover() {
-    local api_ok mesh_ok
-
-    api_ok=$(safe_bool "$HB_FILE" '.api_ok')
-    mesh_ok=$(safe_bool "$HB_FILE" '.mesh_ok')
-
-    if [[ "$api_ok" == "false" || "$mesh_ok" == "false" ]]; then
-        echo "true"
-    else
-        echo "false"
-    fi
+is_mesh_degraded() {
+    jq -r '
+      (.handshake_status != "pass")
+      or (.verify_status != "pass")
+      or (.activate_status != "pass")
+    ' "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null || echo "true"
 }
+
+is_quic_unreachable() {
+    jq -r '.quic_reachable == "false"' \
+        "${STATE_DIR}/quic-client-status.json" 2>/dev/null || echo "true"
+}
+
+is_syncthing_unreachable() {
+    local code
+    code=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "X-API-Key: $API_KEY" \
+        "$API_URL/system/ping" 2>/dev/null || echo "000")
+
+    [[ "$code" == "200" ]] && echo "false" || echo "true"
+}
+
+# ---------------------------------------------------------
+# Main evaluator
+# ---------------------------------------------------------
 
 main() {
-    log "Starting Phoenix v2 Failover Check for role: ${NODE_ROLE}"
+    [[ "$NODE_ROLE" != "MASTERZERO" ]] && exit 0
 
-    json_init "$FAILOVER_FILE"
-    json_set "$FAILOVER_FILE" "timestamp" "$(date -Iseconds)"
-    json_set "$FAILOVER_FILE" "node_role" "$NODE_ROLE"
+    local heartbeat_stale mesh_bad quic_bad syncthing_bad
+    local failover_needed="false"
+    local reason="none"
 
-    case "$NODE_ROLE" in
+    heartbeat_stale=$(is_heartbeat_stale)
+    mesh_bad=$(is_mesh_degraded)
+    quic_bad=$(is_quic_unreachable)
+    syncthing_bad=$(is_syncthing_unreachable)
 
-        MASTERZERO)
-            log "MASTERZERO evaluating failover conditions"
+    if [[ "$heartbeat_stale" == "true" ]]; then
+        failover_needed="true"
+        reason="heartbeat_stale"
+    elif [[ "$mesh_bad" == "true" ]]; then
+        failover_needed="true"
+        reason="mesh_degraded"
+    elif [[ "$quic_bad" == "true" ]]; then
+        failover_needed="true"
+        reason="quic_unreachable"
+    elif [[ "$syncthing_bad" == "true" ]]; then
+        failover_needed="true"
+        reason="syncthing_unreachable"
+    fi
 
-            local failover_needed
-            failover_needed=$(should_failover)
+    json_init "$FAILOVER_JSON"
+    json_set "$FAILOVER_JSON" "timestamp" "$(date -Iseconds)"
+    json_set "$FAILOVER_JSON" "node_role" "$NODE_ROLE"
+    json_set "$FAILOVER_JSON" "failover_needed" "$failover_needed"
+    json_set "$FAILOVER_JSON" "reason" "$reason"
+    json_finalize "$FAILOVER_JSON"
 
-            # failover_needed is a boolean string, so use json_set (string)
-            json_set "$FAILOVER_FILE" "failover_needed" "$failover_needed"
-            ;;
+    /opt/semperfix/scripts/json-perms.sh "$FAILOVER_JSON"
 
-        SECONDARY)
-            log "SECONDARY does not evaluate failover — MASTERZERO decides"
-            json_set "$FAILOVER_FILE" "failover_needed" "handled_by_master"
-            ;;
-
-        OFFSITE)
-            log "OFFSITE does not participate in failover logic"
-            json_set "$FAILOVER_FILE" "failover_needed" "not_applicable"
-            ;;
-
-        *)
-            log "Unknown node role: ${NODE_ROLE}"
-            json_set "$FAILOVER_FILE" "failover_needed" "invalid_node_role"
-            ;;
-    esac
-
-    json_finalize "$FAILOVER_FILE"
-
-    # Fix permissions for Syncthing + Windows
-    /opt/semperfix/scripts/json-perms.sh "$FAILOVER_FILE"
-
-    log "Failover state written to $FAILOVER_FILE"
+    log "Failover evaluation complete: failover_needed=$failover_needed reason=$reason"
 }
 
 main "$@"

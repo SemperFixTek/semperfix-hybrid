@@ -1,7 +1,6 @@
 # Hybrid Dev Environment — Architecture & Operations
 
-> **Layers:** Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository
-> **Paradigm:** Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
+> **Layers:** Windows Host · WSL2 (Ubuntu) · Obsidian Vault · Git Repository **Paradigm:** Secrets in Vault, code in Repo, execution in WSL, UI in Windows.
 
 ---
 
@@ -54,7 +53,7 @@
 The substrate layer. Manages hardware, GUI, and heavy binary assets.
 
 | Owns | Never Owns |
-| ------ | ----------- |
+| --- | --- |
 | System fonts & display config | Source code |
 | Local backup archives (.tar.gz) | Secrets (plaintext) |
 | Browser profiles & GUI apps | Dev toolchains |
@@ -66,9 +65,9 @@ The substrate layer. Manages hardware, GUI, and heavy binary assets.
 The execution layer. All build, run, and test operations happen here.
 
 | Owns | Never Owns |
-| ------ | ----------- |
+| --- | --- |
 | All dev toolchains & runtimes | Windows system files |
-| SSH keys (~/.ssh/) | Vault-designated secrets |
+| SSH keys (\~/.ssh/) | Vault-designated secrets |
 | Local .env files (gitignored) | Committed binary blobs |
 | Docker daemon & containers | Raw database files (commit .sql migrations instead) |
 | Compiled artifacts & logs | Large ML model weights |
@@ -89,7 +88,7 @@ The execution layer. All build, run, and test operations happen here.
 The knowledge & secrets reference layer. Lives on Windows filesystem, accessible from both sides.
 
 | Owns | Never Owns |
-| ------ | ----------- |
+| --- | --- |
 | Personal & team notes (.md) | Executable code |
 | API token references (named, not raw) | Files that need Git version history |
 | Architecture diagrams (reference copies) | .env files |
@@ -101,7 +100,7 @@ The knowledge & secrets reference layer. Lives on Windows filesystem, accessible
 The collaboration and truth layer. If it needs to be shared or versioned, it lives here.
 
 | Owns | Never Owns |
-| ------ | ----------- |
+| --- | --- |
 | All source code | Real secrets or credentials |
 | Config templates (.env.example) | Compiled binaries or large artifacts |
 | Infrastructure-as-code (Terraform, Ansible, K8s) | Raw database files |
@@ -322,7 +321,7 @@ git clone git@github.com:<org>/<repo>.git ~/projects/<repo>
 ## Security Model
 
 | Threat | Mitigation |
-| -------- | ----------- |
+| --- | --- |
 | Secret committed to Repo | Pre-commit hook (detect-secrets / gitleaks) |
 | Secret in Vault plaintext | Vault notes contain names/references only; raw values in password manager |
 | WSL .env leaked via backup | Backup excludes WSL home; Windows backup excludes /mnt/c/… WSL paths |
@@ -358,4 +357,4 @@ Repo       Code, IaC, config templates       Real secrets, binaries, logs
 
 ---
 
-*Last updated: 2026-07-09 | Maintained in: `docs/ARCHITECTURE.md`*
+*Last updated: 2026-07-09 | Maintained in:* `docs/ARCHITECTURE.md`

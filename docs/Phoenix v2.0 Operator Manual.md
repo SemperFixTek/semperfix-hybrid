@@ -2,7 +2,7 @@
 
 ### **SemperFix Hybrid Cluster — Operational Guide**
 
-Version: **2.0**   Audience: Operators, Maintainers, On‑Call Engineers
+Version: **2.0** Audience: Operators, Maintainers, On‑Call Engineers
 
 ## **1. Purpose**
 
@@ -14,50 +14,50 @@ Phoenix v2 defines ​**three roles**​:
 
 ### **MASTERZERO-ACTIVE**
 
-* Primary authoritative node
-* Writes cluster state
-* Drives lineage
-* Sends Syncthing updates
+- Primary authoritative node
+- Writes cluster state
+- Drives lineage
+- Sends Syncthing updates
 
 ### **SECONDARY-ACTIVE**
 
-* Temporary master during failover
-* Writes cluster state
-* Sends Syncthing updates
+- Temporary master during failover
+- Writes cluster state
+- Sends Syncthing updates
 
 ### **SECONDARY-PASSIVE**
 
-* Standby node
-* Receives Syncthing updates
-* Ready for promotion
+- Standby node
+- Receives Syncthing updates
+- Ready for promotion
 
 ## **3. Phoenix Status States**
 
 Phoenix v2 uses the following states:
 
-| State                       | Meaning                             |
-| ----------------------------- | ------------------------------------- |
-| **HEALTHY**           | Node fully operational              |
-| **DEGRADED**          | Node impaired; escalation triggered |
-| **FAILOVER\_ALLOWED** | Supervisor may promote SECONDARY    |
-| **RECOVER**           | MASTERZERO may reclaim authority    |
-| **ERROR**             | Critical failure                    |
+| State | Meaning |
+| --- | --- |
+| **HEALTHY** | Node fully operational |
+| **DEGRADED** | Node impaired; escalation triggered |
+| **FAILOVER_ALLOWED** | Supervisor may promote SECONDARY |
+| **RECOVER** | MASTERZERO may reclaim authority |
+| **ERROR** | Critical failure |
 
 ## **4. Transport Layer (Syncthing)**
 
 Phoenix v2 uses Syncthing to synchronize ​**three authoritative folders**​:
 
-| Folder                 | Purpose                              |
-| ------------------------ | -------------------------------------- |
-| **MasterZero**   | MASTERZERO authoritative data        |
-| **ConfigBackup** | Cluster state + lineage + status     |
-| **Assets**       | Shared assets required by both nodes |
+| Folder | Purpose |
+| --- | --- |
+| **MasterZero** | MASTERZERO authoritative data |
+| **ConfigBackup** | Cluster state + lineage + status |
+| **Assets** | Shared assets required by both nodes |
 
 Operators must ensure:
 
-* Syncthing service is running
-* All three folders show **State = idle**
-* No folder is stalled or out‑of‑sync
+- Syncthing service is running
+- All three folders show **State = idle**
+- No folder is stalled or out‑of‑sync
 
 ## **5. Core Operational Files**
 
@@ -75,12 +75,12 @@ This is the **single source of truth** for cluster state.
 
 Operators should inspect:
 
-* `Role`
-* `Status`
-* `Cluster.Lineage`
-* `Syncthing.Healthy`
-* `Actions.FailoverAllowed`
-* `Actions.RecoveryAllowed`
+- `Role`
+- `Status`
+- `Cluster.Lineage`
+- `Syncthing.Healthy`
+- `Actions.FailoverAllowed`
+- `Actions.RecoveryAllowed`
 
 ## **6. Supervisor (Cluster Brain)**
 
@@ -90,12 +90,12 @@ Runs continuously or via scheduled task.
 
 Responsibilities:
 
-* Read phoenix-status.json
-* Read Syncthing health
-* Decide promote/demote/recover
-* Execute action modules
-* Write updated cluster state
-* Log all decisions
+- Read phoenix-status.json
+- Read Syncthing health
+- Decide promote/demote/recover
+- Execute action modules
+- Write updated cluster state
+- Log all decisions
 
 Operators may run:
 
@@ -129,9 +129,9 @@ SECONDARY-PASSIVE → SECONDARY-ACTIVE
 
 Triggered when:
 
-* Status = FAILOVER\_ALLOWED
-* Syncthing healthy
-* Phoenix healthy
+- Status = FAILOVER_ALLOWED
+- Syncthing healthy
+- Phoenix healthy
 
 ### **7.2 Demotion**
 
@@ -145,8 +145,8 @@ SECONDARY-ACTIVE → SECONDARY-PASSIVE
 
 Triggered when:
 
-* Status = RECOVER
-* MASTERZERO healthy
+- Status = RECOVER
+- MASTERZERO healthy
 
 ### **7.3 Recovery**
 
@@ -212,8 +212,8 @@ phoenix-syncthing-health.ps1
 
 Look for:
 
-* `Healthy = true`
-* All folders `State = idle`
+- `Healthy = true`
+- All folders `State = idle`
 
 ## **9. Logs**
 
@@ -239,31 +239,31 @@ Code
 
 Operators must:
 
-* Ensure Syncthing is running
-* Ensure Phoenix service is running
-* Monitor phoenix-supervisor logs
-* Inspect phoenix-status.json
-* Validate cluster lineage
-* Respond to DEGRADED states
-* Trigger manual failover only when necessary
+- Ensure Syncthing is running
+- Ensure Phoenix service is running
+- Monitor phoenix-supervisor logs
+- Inspect phoenix-status.json
+- Validate cluster lineage
+- Respond to DEGRADED states
+- Trigger manual failover only when necessary
 
 ## **11. Failure Modes**
 
 ### **Syncthing Unhealthy**
 
-* Supervisor logs WARN
-* Node may enter DEGRADED
-* Failover not allowed
+- Supervisor logs WARN
+- Node may enter DEGRADED
+- Failover not allowed
 
 ### **Phoenix Service Down**
 
-* Node enters DEGRADED
-* Supervisor may escalate
+- Node enters DEGRADED
+- Supervisor may escalate
 
 ### **Status JSON Stale**
 
-* Supervisor logs ERROR
-* Node enters DEGRADED
+- Supervisor logs ERROR
+- Node enters DEGRADED
 
 ## **12. Recovery Procedures**
 
@@ -279,13 +279,12 @@ Operators must:
 
 Phoenix v2 provides:
 
-* Deterministic failover
-* Deterministic recovery
-* Syncthing‑based transport
-* SMB‑free architecture
-* Unified cluster state
-* Modular control plane
-* Operator‑friendly workflows
+- Deterministic failover
+- Deterministic recovery
+- Syncthing‑based transport
+- SMB‑free architecture
+- Unified cluster state
+- Modular control plane
+- Operator‑friendly workflows
 
 This manual is the operational reference for maintaining Phoenix v2 in production.
-

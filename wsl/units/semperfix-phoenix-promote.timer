@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix Automatic Promotion Timer
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+Unit=semperfix-phoenix-promote.service
+
+[Install]
+WantedBy=timers.target

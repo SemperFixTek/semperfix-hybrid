@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix Automatic Promotion Engine
+
+[Service]
+Type=oneshot
+User=root
+Group=semperfix
+UMask=002
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-promote.sh
+StandardOutput=append:/opt/semperfix/logs/promote.log
+StandardError=append:/opt/semperfix/logs/promote.log
+
+[Install]
+WantedBy=multi-user.target

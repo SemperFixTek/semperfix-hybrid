@@ -15,8 +15,7 @@ Code
 └──────────────────────────────┘                 └──────────────────────────────┘
 ```
 
-LOCAL FILESYSTEM                               LOCAL FILESYSTEM
-(Authoritative)                                 (Replica / Standby)
+LOCAL FILESYSTEM LOCAL FILESYSTEM (Authoritative) (Replica / Standby)
 
 ```
 C:\SemperFix\MasterZero     <─────Syncthing─────>     C:\SemperFix\MasterZero
@@ -33,25 +32,44 @@ CONTROL PLANE (Phoenix v2)
 ```
 
 ┌──────────────────────────────────────────┐
-│        phoenix-supervisor.ps1                                              │
-│   Continuous cluster brain (role logic)  │
+
+│ phoenix-supervisor.ps1 │
+
+│ Continuous cluster brain (role logic) │
+
 └──────────────────────────────────────────┘
+
 │
+
 ▼
+
 ┌──────────────────────────────────────────┐
-│     phoenix-syncthing-health.ps1         │
-│   Transport health (folder + device)     │
+
+│ phoenix-syncthing-health.ps1 │
+
+│ Transport health (folder + device) │
+
 └──────────────────────────────────────────┘
+
 │
+
 ▼
+
 ┌──────────────────────────────────────────┐
-│     phoenix-status.json (v2)             │
-│   Single source of truth (cluster state) │
+
+│ phoenix-status.json (v2) │
+
+│ Single source of truth (cluster state) │
+
 └──────────────────────────────────────────┘
+
 │
+
 ▼
+
+
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                           ACTION MODULES                                   │
+│ ACTION MODULES │
 └────────────────────────────────────────────────────────────────────────────┘
 
 ```
@@ -96,6 +114,4 @@ MASTERZERO-ACTIVE restored
 ```
 
 ```
-
 ```
-
