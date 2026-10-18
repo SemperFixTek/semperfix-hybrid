@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phoenix Cluster Dashboard</title>
+    <style>
+        body { font-family: Arial; background: #111; color: #eee; }
+        .section { margin-bottom: 20px; padding: 10px; background: #222; border-radius: 8px; }
+        h2 { color: #6cf; }
+        pre { background: #000; padding: 10px; border-radius: 6px; }
+    </style>
+    <script>
+        async function refresh() {
+            const cluster = await fetch("/cluster").then(r => r.json());
+            const logs = await fetch("/logs").then(r => r.json());
+
+            document.getElementById("cluster").textContent =
+                JSON.stringify(cluster, null, 2);
+
+            document.getElementById("logs").textContent =
+                JSON.stringify(logs, null, 2);
+        }
+        setInterval(refresh, 5000);
+        window.onload = refresh;
+    </script>
+</head>
+<body>
+    <div class="section">
+        <h2>Cluster State</h2>
+        <pre id="cluster"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Logs</h2>
+        <pre id="logs"></pre>
+    </div>
+</body>
+</html>

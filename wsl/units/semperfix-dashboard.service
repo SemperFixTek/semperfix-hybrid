@@ -1,0 +1,12 @@
+[Unit]
+Description=Phoenix Cluster Dashboard
+
+[Service]
+User=root
+Group=semperfix
+ExecStart=/usr/bin/python3 /opt/semperfix/dashboard/server.py
+WorkingDirectory=/opt/semperfix/dashboard
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
