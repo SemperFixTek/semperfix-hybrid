@@ -43,7 +43,7 @@ mz_win_heartbeat=$(wslpath -w "${STATE_DIR}/windows-heartbeat.json" 2>/dev/null 
 # ---------------------------------------------------------
 # Collect SECONDARY WSL logs (via Syncthing share)
 # ---------------------------------------------------------
-sec_state="/mnt/c/SemperFix/state-secondary"
+sec_state="/mnt/c/semperfix/secondary-export"
 sec_heartbeat=$(load_json "${sec_state}/phoenix-heartbeat.json")
 sec_supervisor=$(load_json "${sec_state}/phoenix-supervisor.json")
 sec_mesh=$(load_json "${sec_state}/mesh-status.json")
