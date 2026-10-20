@@ -1,6 +1,6 @@
 {
   "node": {
-    "role": "SECONDARY",
+    "role": "SECONDARY-PASSIVE",
     "hostname": "secondary",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs",
@@ -12,7 +12,7 @@
 
   "syncthing": {
     "api_url": "http://192.168.1.120:8384/rest",
-    "api_key": "Ph9SQC9hViRgPSvXQm3q9fD6i653aKNU",
+    "api_key": "9jZz6XCt3tbZ6rUUG7E9zHquRsanDH5Q",
     "peer_ip": "10.10.10.120",
     "peer_port": 22000
   },

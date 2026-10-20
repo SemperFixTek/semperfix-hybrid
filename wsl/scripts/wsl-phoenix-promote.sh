@@ -15,7 +15,6 @@ LOGFILE="${LOG_DIR}/phoenix-promote.log"
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
-
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
@@ -59,18 +58,18 @@ save_promote_state() {
 }
 
 do_promotion() {
-    log "Automatic promotion triggered — SECONDARY becoming MASTERZERO"
+    log "Automatic promotion triggered — SECONDARY-PASSIVE becoming SECONDARY-ACTIVE (controller mode)"
 
-    # Flip role in phoenix.json
-    jq '.node.role = "MASTERZERO"' /opt/semperfix/config/phoenix.json \
+    # Flip role in phoenix.json to SECONDARY-ACTIVE
+    jq '.node.role = "SECONDARY-ACTIVE"' /opt/semperfix/config/phoenix.json \
         > /opt/semperfix/config/phoenix.json.tmp && \
         mv /opt/semperfix/config/phoenix.json.tmp /opt/semperfix/config/phoenix.json
 
-    # Disable SECONDARY-only
+    # Disable SECONDARY-only responder
     systemctl disable semperfix-quic-responder.service || true
     systemctl stop semperfix-quic-responder.service || true
 
-    # Enable MASTERZERO units
+    # Enable controller stack on SECONDARY-ACTIVE
     systemctl enable semperfix-phoenix-supervisor.timer
     systemctl enable semperfix-phoenix-heartbeat.timer
     systemctl enable semperfix-mesh-status.timer
@@ -87,7 +86,7 @@ do_promotion() {
     systemctl start semperfix-phoenix-descalate.timer
     systemctl start semperfix-mesh-listener.service
 
-    log "Promotion complete — node role now MASTERZERO"
+    log "Promotion complete — node role now SECONDARY-ACTIVE"
 }
 
 # ---------------------------------------------------------
@@ -95,7 +94,8 @@ do_promotion() {
 # ---------------------------------------------------------
 
 main() {
-    [[ "$NODE_ROLE" != "SECONDARY" ]] && exit 0
+    # Only run on passive SECONDARY
+    [[ "$NODE_ROLE" != "SECONDARY-PASSIVE" && "$NODE_ROLE" != "SECONDARY" ]] && exit 0
 
     local failover_flag reason quic_bad mesh_bad strikes
 
@@ -107,8 +107,8 @@ main() {
 
     log "Promotion check: failover=$failover_flag reason=$reason quic_bad=$quic_bad mesh_bad=$mesh_bad strikes=$strikes"
 
-    # Balanced policy:
-    # - MASTERZERO says failover_needed=true
+    # Policy:
+    # - MASTERZERO signals failover_needed=true
     # - QUIC unreachable from SECONDARY
     # - local mesh degraded
     if [[ "$failover_flag" == "true" && "$quic_bad" == "true" && "$mesh_bad" == "true" ]]; then
@@ -124,7 +124,7 @@ main() {
     if (( strikes >= 2 )); then
         do_promotion
     else
-        log "Promotion not yet triggered (strikes<$((2)))"
+        log "Promotion not yet triggered (strikes<2)"
     fi
 }
 
