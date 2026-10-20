@@ -8,8 +8,8 @@ ExecStart=/opt/semperfix/scripts/state-export-windows.sh
 User=root
 Group=semperfix
 UMask=002
-StandardOutput=append:/opt/semperfix/logs/export-windows.log
-StandardError=append:/opt/semperfix/logs/export-windows.log
+StandardOutput=append:/opt/semperfix/logs/export.log
+StandardError=append:/opt/semperfix/logs/export.log
 
 [Install]
 WantedBy=multi-user.target
