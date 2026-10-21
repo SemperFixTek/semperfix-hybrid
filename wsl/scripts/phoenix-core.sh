@@ -75,12 +75,15 @@ phoenix_load_config() {
         NODE_ROLE=$(jq -r '.node.role // empty' "$CONFIG_JSON")
 
         case "$NODE_ROLE" in
-            MASTERZERO|SECONDARY|OFFSITE)
+            MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER|\
+            SECONDARY-PASSIVE|SECONDARY-ACTIVE|\
+            OFFSITE)
                 ;;
             *)
-                phoenix_error "Invalid node.role in phoenix.json: ${NODE_ROLE}"
-                ;;
-        esac
+        phoenix_error "Invalid node.role in phoenix.json: $NODE_ROLE"
+        ;;
+esac
+
 
         HOSTNAME=$(jq -r '.node.hostname // empty' "$CONFIG_JSON")
 
