@@ -5,7 +5,7 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-ROLE_FILE="/opt/semperfix/state/phoenix.json"
+ROLE_FILE="/opt/semperfix/config/phoenix.json"
 STATE_DIR="/opt/semperfix/state"
 PRESET_DIR="/etc/systemd/system-preset"
 LOG_DIR="/opt/semperfix/logs"
