@@ -57,36 +57,9 @@ save_promote_state() {
     /opt/semperfix/scripts/json-perms.sh "$PROMOTE_STATE_JSON"
 }
 
-do_promotion() {
-    log "Automatic promotion triggered — SECONDARY-PASSIVE becoming SECONDARY-ACTIVE (controller mode)"
-
-    # Flip role in phoenix.json to SECONDARY-ACTIVE
-    jq '.node.role = "SECONDARY-ACTIVE"' /opt/semperfix/config/phoenix.json \
-        > /opt/semperfix/config/phoenix.json.tmp && \
-        mv /opt/semperfix/config/phoenix.json.tmp /opt/semperfix/config/phoenix.json
-
-    # Disable SECONDARY-only responder
-    systemctl disable semperfix-quic-responder.service || true
-    systemctl stop semperfix-quic-responder.service || true
-
-    # Enable controller stack on SECONDARY-ACTIVE
-    systemctl enable semperfix-phoenix-supervisor.timer
-    systemctl enable semperfix-phoenix-heartbeat.timer
-    systemctl enable semperfix-mesh-status.timer
-    systemctl enable semperfix-quic-client.timer
-    systemctl enable semperfix-phoenix-failover.timer
-    systemctl enable semperfix-phoenix-descalate.timer
-    systemctl enable semperfix-mesh-listener.service
-
-    systemctl start semperfix-phoenix-supervisor.timer
-    systemctl start semperfix-phoenix-heartbeat.timer
-    systemctl start semperfix-mesh-status.timer
-    systemctl start semperfix-quic-client.timer
-    systemctl start semperfix-phoenix-failover.timer
-    systemctl start semperfix-phoenix-descalate.timer
-    systemctl start semperfix-mesh-listener.service
-
-    log "Promotion complete — node role now SECONDARY-ACTIVE"
+trigger_promotion() {
+    log "Promotion triggered — calling Phoenix Role Switcher"
+    /opt/semperfix/scripts/phoenix-role-switch.sh SECONDARY-ACTIVE
 }
 
 # ---------------------------------------------------------
@@ -122,7 +95,7 @@ main() {
 
     # Require 2 consecutive strikes
     if (( strikes >= 2 )); then
-        do_promotion
+        trigger_promotion
     else
         log "Promotion not yet triggered (strikes<2)"
     fi

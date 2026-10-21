@@ -21,17 +21,8 @@ run_handshake()  { /opt/semperfix/scripts/wsl-mesh-handshake.sh; }
 run_verify()     { /opt/semperfix/scripts/wsl-mesh-verify.sh; }
 run_activate()   { /opt/semperfix/scripts/wsl-mesh-activate.sh; }
 
-# Normalize legacy roles
-normalize_role() {
-    case "$NODE_ROLE" in
-        MASTERZERO) echo "MASTERZERO-ACTIVE" ;;
-        SECONDARY)  echo "SECONDARY-PASSIVE" ;;
-        *) echo "$NODE_ROLE" ;;
-    esac
-}
-
-ROLE="$(normalize_role)"
-log "Phoenix v2 Supervisor starting for role: $ROLE"
+ROLE="$NODE_ROLE"
+log "Phoenix v2.1 Supervisor starting for role: $ROLE"
 
 main() {
     local handshake_status="not_applicable"
@@ -57,7 +48,7 @@ main() {
             ;;
 
         SECONDARY-PASSIVE)
-            log "SECONDARY-PASSIVE — supervisor disabled"
+            log "SECONDARY-PASSIVE — supervisor telemetry only"
             handshake_status="not_applicable"
             verify_status="not_applicable"
             activate_status="not_applicable"

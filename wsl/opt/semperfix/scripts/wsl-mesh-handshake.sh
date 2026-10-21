@@ -16,7 +16,6 @@ phoenix_init
 LOGFILE="${LOG_DIR}/mesh-handshake.log"
 JSON_OUT="${STATE_DIR}/mesh-handshake.json"
 
-# Use core logging
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
@@ -65,22 +64,32 @@ main() {
     json_set "$JSON_OUT" "api_url" "$API_URL"
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
+    local handshake_status="fail"
+
     case "$NODE_ROLE" in
 
-        MASTERZERO)
-            log "MASTERZERO initiating full mesh handshake"
+        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
+            log "${NODE_ROLE} initiating full mesh handshake"
             check_syncthing_api
             check_quic
             dump_peers
-            json_set "$JSON_OUT" "handshake_status" "pass"
+            handshake_status="pass"
             ;;
 
-        SECONDARY)
-            log "SECONDARY performing responder-side diagnostics"
+        SECONDARY-ACTIVE)
+            log "SECONDARY-ACTIVE performing controller-side handshake"
+            check_syncthing_api
+            check_quic
+            dump_peers
+            handshake_status="pass"
+            ;;
+
+        SECONDARY-PASSIVE)
+            log "SECONDARY-PASSIVE performing responder-side diagnostics"
             check_syncthing_api
             dump_peers
             json_set "$JSON_OUT" "quic_status" "handled_by_responder"
-            json_set "$JSON_OUT" "handshake_status" "pass"
+            handshake_status="pass"
             ;;
 
         OFFSITE)
@@ -88,20 +97,21 @@ main() {
             check_syncthing_api
             json_set "$JSON_OUT" "quic_status" "not_applicable"
             json_set_raw "$JSON_OUT" "peer_dump" "null"
-            json_set "$JSON_OUT" "handshake_status" "pass"
+            handshake_status="pass"
             ;;
 
         *)
             log "Unknown node role: ${NODE_ROLE}"
             json_set "$JSON_OUT" "error" "invalid_node_role"
-            json_set "$JSON_OUT" "handshake_status" "fail"
+            handshake_status="fail"
             ;;
     esac
+
+    json_set "$JSON_OUT" "handshake_status" "$handshake_status"
 
     log "Handshake diagnostics complete"
     json_finalize "$JSON_OUT"
 
-    # Fix permissions for Syncthing + Windows
     /opt/semperfix/scripts/json-perms.sh "$JSON_OUT"
 }
 

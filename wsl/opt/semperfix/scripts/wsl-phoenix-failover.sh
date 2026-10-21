@@ -58,7 +58,14 @@ is_syncthing_unreachable() {
 # ---------------------------------------------------------
 
 main() {
-    [[ "$NODE_ROLE" != "MASTERZERO" ]] && exit 0
+    # Only MASTERZERO evaluates failover
+    case "$NODE_ROLE" in
+        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
+            ;;
+        *)
+            exit 0
+            ;;
+    esac
 
     local heartbeat_stale mesh_bad quic_bad syncthing_bad
     local failover_needed="false"
@@ -83,6 +90,7 @@ main() {
         reason="syncthing_unreachable"
     fi
 
+    # Write failover telemetry
     json_init "$FAILOVER_JSON"
     json_set "$FAILOVER_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$FAILOVER_JSON" "node_role" "$NODE_ROLE"
@@ -93,6 +101,12 @@ main() {
     /opt/semperfix/scripts/json-perms.sh "$FAILOVER_JSON"
 
     log "Failover evaluation complete: failover_needed=$failover_needed reason=$reason"
+
+    # Trigger role switch if needed
+    if [[ "$failover_needed" == "true" ]]; then
+        log "MASTERZERO degraded — calling Phoenix Role Switcher"
+        /opt/semperfix/scripts/phoenix-role-switch.sh MASTERZERO-DEGRADED
+    fi
 }
 
 main "$@"

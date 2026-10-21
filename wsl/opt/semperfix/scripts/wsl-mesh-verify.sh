@@ -27,9 +27,8 @@ verify_connections() {
 
     printf "%s\n" "$matrix" >> "$LOGFILE"
 
-    # jq-based check instead of brittle string matching
     local connected
-    connected=$(jq -r '.connections | length > 0' <<< "$matrix")
+    connected=$(jq -r '.connections | length > 0' <<< "$matrix" 2>/dev/null || echo "false")
 
     if [[ "$connected" == "true" ]]; then
         log "At least one peer is connected"
@@ -51,7 +50,7 @@ verify_device_ids() {
     printf "%s\n" "$devices" >> "$LOGFILE"
 
     local has_id
-    has_id=$(jq -r '.myID != null' <<< "$devices")
+    has_id=$(jq -r '.myID != null' <<< "$devices" 2>/dev/null || echo "false")
 
     if [[ "$has_id" == "true" ]]; then
         log "Device ID present"
@@ -72,7 +71,6 @@ verify_folders() {
 
     printf "%s\n" "$folders" >> "$LOGFILE"
 
-    # FIXED: Proper jq evaluation of folder states
     local all_idle
     all_idle=$(jq -r '
         if (type == "array") then
@@ -80,7 +78,7 @@ verify_folders() {
         else
             false
         end
-    ' <<< "$folders")
+    ' <<< "$folders" 2>/dev/null || echo "false")
 
     if [[ "$all_idle" == "true" ]]; then
         log "Folders idle and healthy"
@@ -101,14 +99,32 @@ main() {
     json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
     json_set "$JSON_OUT" "api_url" "$API_URL"
 
+    local verify_status="fail"
+
     case "$NODE_ROLE" in
 
-        MASTERZERO|SECONDARY)
+        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
             log "${NODE_ROLE} performing full mesh verification"
             verify_connections
             verify_device_ids
             verify_folders
-            json_set "$JSON_OUT" "verify_status" "pass"
+            verify_status="pass"
+            ;;
+
+        SECONDARY-ACTIVE)
+            log "SECONDARY-ACTIVE performing full mesh verification (controller mode)"
+            verify_connections
+            verify_device_ids
+            verify_folders
+            verify_status="pass"
+            ;;
+
+        SECONDARY-PASSIVE)
+            log "SECONDARY-PASSIVE — verification telemetry only"
+            verify_device_ids
+            json_set "$JSON_OUT" "peer_connected" "not_applicable"
+            json_set "$JSON_OUT" "folder_health" "not_applicable"
+            verify_status="pass"
             ;;
 
         OFFSITE)
@@ -116,20 +132,21 @@ main() {
             verify_device_ids
             json_set "$JSON_OUT" "peer_connected" "not_applicable"
             json_set "$JSON_OUT" "folder_health" "not_applicable"
-            json_set "$JSON_OUT" "verify_status" "pass"
+            verify_status="pass"
             ;;
 
         *)
             log "Unknown node role: ${NODE_ROLE}"
             json_set "$JSON_OUT" "error" "invalid_node_role"
-            json_set "$JSON_OUT" "verify_status" "fail"
+            verify_status="fail"
             ;;
     esac
+
+    json_set "$JSON_OUT" "verify_status" "$verify_status"
 
     log "Mesh verification complete"
     json_finalize "$JSON_OUT"
 
-    # Fix permissions for Syncthing + Windows
     /opt/semperfix/scripts/json-perms.sh "$JSON_OUT"
 }
 
