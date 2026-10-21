@@ -1,5 +1,5 @@
 [Unit]
-Description=SemperFix Phoenix QUIC Responder (v2)
+Description=Phoenix v2.1 QUIC Responder (Passive Node)
 After=network-online.target
 Wants=network-online.target
 

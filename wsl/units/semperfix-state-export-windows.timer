@@ -1,9 +1,9 @@
 [Unit]
-Description=Periodic export of SECONDARY state JSON into Windows NTFS
+Description=Phoenix v2.1 Passive State Export Timer
 
 [Timer]
-OnBootSec=10s
-OnUnitActiveSec=10s
+OnBootSec=20s
+OnUnitActiveSec=20s
 Unit=semperfix-state-export-windows.service
 
 [Install]

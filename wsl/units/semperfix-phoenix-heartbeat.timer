@@ -1,9 +1,9 @@
 [Unit]
-Description=Run SemperFix Phoenix Heartbeat Every Minute
+Description=Phoenix v2.1 Passive Heartbeat Timer
 
 [Timer]
-OnBootSec=20s
-OnUnitActiveSec=30s
+OnBootSec=10s
+OnUnitActiveSec=10s
 Unit=semperfix-phoenix-heartbeat.service
 
 [Install]

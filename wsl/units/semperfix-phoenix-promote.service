@@ -1,12 +1,12 @@
 [Unit]
-Description=Phoenix Automatic Promotion Engine
+Description=Phoenix v2.1 Promotion Check
 
 [Service]
 Type=oneshot
-User=root
-Group=semperfix
 UMask=002
 ExecStart=/opt/semperfix/scripts/wsl-phoenix-promote.sh
+User=root
+Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/promote.log
 StandardError=append:/opt/semperfix/logs/promote.log
 

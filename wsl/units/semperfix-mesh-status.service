@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Mesh Status
+Description=Phoenix v2.1 Passive Mesh Status
 
 [Service]
 Type=oneshot

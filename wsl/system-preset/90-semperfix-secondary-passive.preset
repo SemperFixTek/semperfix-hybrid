@@ -1,0 +1,17 @@
+enable semperfix-phoenix-heartbeat.timer
+enable semperfix-mesh-status.timer
+enable semperfix-quic-responder.service
+enable semperfix-state-export-windows.timer
+enable semperfix-phoenix-promote.timer
+enable semperfix-network-normalizer.service
+enable semperfix-inotify-monitor.service
+
+disable semperfix-phoenix-supervisor.service
+disable semperfix-phoenix-supervisor.timer
+disable semperfix-phoenix-failover.service
+disable semperfix-phoenix-failover.timer
+disable semperfix-phoenix-descalate.service
+disable semperfix-phoenix-descalate.timer
+disable semperfix-quic-client.service
+disable semperfix-quic-client.timer
+disable semperfix-mesh-listener.service

@@ -1,7 +1,6 @@
-# /opt/semperfix/units/semperfix-inotify-monitor.service 
 
 [Unit] 
-Description=SemperFix inotify File Integrity Monitor 
+Description=Phoenix v2.1 Inotify Monitor 
 After=local-fs.target 
 Wants=local-fs.target  
 

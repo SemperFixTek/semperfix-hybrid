@@ -1,5 +1,5 @@
 [Unit]
-Description=Copy SECONDARY state JSON into Windows NTFS
+Description=Phoenix v2.1 Passive State Export
 After=network.target
 
 [Service]

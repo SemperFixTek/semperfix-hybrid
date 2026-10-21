@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Automatic Promotion Timer
+Description=Phoenix v2.1 Promotion Check Timer
 
 [Timer]
 OnBootSec=30s

@@ -1,5 +1,5 @@
 [Unit]
-Description=SemperFix Phoenix v2 Heartbeat
+Description=SemperFix Phoenix v2.1 Passive Heartbeat
 Wants=network-online.target
 After=network-online.target
 
