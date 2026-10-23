@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — Heartbeat
+# Version: Phoenix v2.1
+# Component: phoenix-heartbeat
+# Role: Controller / Responder / Observer (role-aware)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
@@ -15,9 +24,12 @@ phoenix_init
 HEARTBEAT_FILE="${STATE_DIR}/phoenix-heartbeat.json"
 LOGFILE="${LOG_DIR}/phoenix-heartbeat.log"
 
+PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
-# ---------- Health Checks ----------
+# =====================================================================
+# Health Checks
+# =====================================================================
 
 check_api() {
     curl -s -o /dev/null -w "%{http_code}" \
@@ -51,8 +63,12 @@ check_mesh_ok() {
     ' "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null
 }
 
+# =====================================================================
+# Main
+# =====================================================================
+
 main() {
-    log "Phoenix v2 Heartbeat for role: ${NODE_ROLE}"
+    log "Phoenix v2.1 Heartbeat for role: ${NODE_ROLE}"
 
     local api_ok="false"
     local syncthing_ready="false"
@@ -83,7 +99,6 @@ main() {
             ;;
 
         SECONDARY-PASSIVE)
-            # Passive heartbeat: responder + passive mesh handshake
             log "Passive heartbeat: limited controller checks"
 
             # QUIC responder health
@@ -107,7 +122,10 @@ main() {
             ;;
     esac
 
-    # ---------- Unified JSON Writer ----------
+    # =====================================================================
+    # Unified JSON Writer
+    # =====================================================================
+
     json_init "$HEARTBEAT_FILE"
 
     json_set "$HEARTBEAT_FILE" "timestamp" "$(date -Iseconds)"

@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — QUIC Responder
+# Version: Phoenix v2.1
+# Component: quic-responder
+# Role: Responder-only (SECONDARY-PASSIVE)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
-# Load Phoenix core
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
-# --- ROLE GUARD: SECONDARY ONLY ---
-if [[ "$NODE_ROLE" != "SECONDARY" ]]; then
-    phoenix_log_file "INFO" "QUIC responder disabled for role: ${NODE_ROLE}"
-    exit 0
-fi
+# --- ROLE GUARD: Phoenix v2.1 ---
+case "$NODE_ROLE" in
+    SECONDARY-PASSIVE)
+        phoenix_log_file "INFO" "QUIC responder enabled for role: ${NODE_ROLE}"
+        ;;
+    *)
+        phoenix_log_file "INFO" "QUIC responder disabled for role: ${NODE_ROLE}"
+        exit 0
+        ;;
+esac
 
 PORT="${PHOENIX_QUIC_PORT}"
 LOGFILE="${LOG_DIR}/phoenix-quic-responder.log"
@@ -31,6 +43,7 @@ HANDLER="/opt/semperfix/scripts/quic-handler.sh"
 
 cat > "$HANDLER" <<EOF
 #!/usr/bin/env bash
+# Phoenix v2.1 — QUIC Handler
 set -euo pipefail
 
 LOGFILE="${LOG_DIR}/quic-handler.log"

@@ -5,10 +5,8 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Normalize line endings
 dos2unix "$0" 2>/dev/null || true
 
-# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -31,7 +29,6 @@ write_state() {
     json_set "$STATUS_JSON" "quic_reachable" "$2"
     json_finalize "$STATUS_JSON"
 
-    # Fix permissions for Syncthing + Windows
     /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
 }
 
@@ -44,7 +41,6 @@ check_syncthing() {
 }
 
 check_quic() {
-    # Proper UDP probe
     if echo "probe" | nc -u -w1 "${QUIC_IP}" "${QUIC_PORT}" &>/dev/null; then
         echo "true"
     else
@@ -52,13 +48,16 @@ check_quic() {
     fi
 }
 
-# Listener only runs on MASTERZERO
-if [[ "$NODE_ROLE" != "MASTERZERO" ]]; then
-    log "Mesh listener disabled for role: ${NODE_ROLE}"
-    exit 0
-fi
-
-log "Phoenix Mesh Listener starting for role ${NODE_ROLE}"
+# Phoenix v2.1 controller roles
+case "$NODE_ROLE" in
+    MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER|SECONDARY-ACTIVE)
+        log "Phoenix Mesh Listener starting for controller role: ${NODE_ROLE}"
+        ;;
+    *)
+        log "Mesh listener disabled for role: ${NODE_ROLE}"
+        exit 0
+        ;;
+esac
 
 while true; do
     syncthing_ok=$(check_syncthing)

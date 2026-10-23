@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — Mesh Status
+# Version: Phoenix v2.1
+# Component: mesh-status
+# Role: Controller / Responder / Observer (role-aware)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
@@ -61,10 +70,9 @@ main() {
             check_api
             check_connections
 
-            # Controller-only fields
-            json_set "$STATUS_JSON" "handshake_status" "$(jq -r '.handshake_status' ${STATE_DIR}/phoenix-supervisor.json 2>/dev/null || echo "unknown")"
-            json_set "$STATUS_JSON" "verify_status"    "$(jq -r '.verify_status'    ${STATE_DIR}/phoenix-supervisor.json 2>/dev/null || echo "unknown")"
-            json_set "$STATUS_JSON" "activate_status"  "$(jq -r '.activate_status'  ${STATE_DIR}/phoenix-supervisor.json 2>/dev/null || echo "unknown")"
+            json_set "$STATUS_JSON" "handshake_status" "$(jq -r '.handshake_status' "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null || echo "unknown")"
+            json_set "$STATUS_JSON" "verify_status"    "$(jq -r '.verify_status'    "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null || echo "unknown")"
+            json_set "$STATUS_JSON" "activate_status"  "$(jq -r '.activate_status'  "${STATE_DIR}/phoenix-supervisor.json" 2>/dev/null || echo "unknown")"
             ;;
 
         SECONDARY-PASSIVE)
@@ -73,8 +81,7 @@ main() {
             check_api
             check_connections
 
-            # Passive-only fields
-            json_set "$STATUS_JSON" "handshake_status" "$(jq -r '.handshake_status' ${STATE_DIR}/mesh-handshake.json 2>/dev/null || echo "unknown")"
+            json_set "$STATUS_JSON" "handshake_status" "$(jq -r '.handshake_status' "${STATE_DIR}/mesh-handshake.json" 2>/dev/null || echo "unknown")"
             json_set "$STATUS_JSON" "verify_status" "not_applicable"
             json_set "$STATUS_JSON" "activate_status" "not_applicable"
             ;;

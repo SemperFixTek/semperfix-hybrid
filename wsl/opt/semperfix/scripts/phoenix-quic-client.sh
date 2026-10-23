@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — Quic Client
+# Version: Phoenix v2.1
+# Component: phoenix-quic-client
+# Role: Controller-only (MASTERZERO-* and SECONDARY-ACTIVE)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
@@ -27,7 +36,6 @@ case "$NODE_ROLE" in
         exit 0
         ;;
 esac
-
 
 QUIC_IP="${PEER_IP}"
 QUIC_PORT="${PHOENIX_QUIC_PORT}"

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — Status Writer
+# Version: Phoenix v2.1
+# Component: wsl-phoenix-status-write
+# Role: All roles (controller/responder/offsite)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
@@ -29,13 +38,8 @@ safe_field() {
 detect_role() {
     local base_role="$NODE_ROLE"
 
-    # Normalize legacy roles
-    case "$base_role" in
-        MASTERZERO) base_role="MASTERZERO-ACTIVE" ;;
-        SECONDARY)  base_role="SECONDARY-PASSIVE" ;;
-    esac
 
-    # Promotion detection
+    # Promotion detection → SECONDARY-ACTIVE
     if [[ -f "$FAIL_JSON" ]]; then
         local promoted
         promoted=$(jq -r '.promoted // "false"' "$FAIL_JSON" 2>/dev/null)
@@ -44,12 +48,12 @@ detect_role() {
         fi
     fi
 
-    # Degraded detection (MASTERZERO only)
+    # MASTERZERO degraded detection
     if [[ "$base_role" == "MASTERZERO-ACTIVE" ]]; then
         local handshake verify activate
-        handshake=$(jq -r '.handshake_status // "fail"' "$MESH_JSON" 2>/dev/null)
-        verify=$(jq -r '.verify_status // "fail"' "$MESH_JSON" 2>/dev/null)
-        activate=$(jq -r '.activate_status // "fail"' "$MESH_JSON" 2>/dev/null)
+        handshake=$(safe_field "$MESH_JSON" '.handshake_status')
+        verify=$(safe_field "$MESH_JSON" '.verify_status')
+        activate=$(safe_field "$MESH_JSON" '.activate_status')
 
         if [[ "$handshake" != "pass" || "$verify" != "pass" || "$activate" != "pass" ]]; then
             base_role="MASTERZERO-DEGRADED"
@@ -80,33 +84,46 @@ write_status() {
         --arg peer "${PEER_IP}:${PEER_PORT}" \
         '{role:$role, api_url:$api, peer_target:$peer}')"
 
-    # health (role-aware)
-    if [[ "$ROLE" == SECONDARY-PASSIVE ]]; then
-        json_set_raw "$STATUS_FILE" "health" "$(jq -n \
-            --arg hb "$(safe_field "$HB_JSON" '.heartbeat_ok')" \
-            '{heartbeat_ok:$hb}')"
+    # health block (role-aware)
+    case "$ROLE" in
 
-    else
-        json_set_raw "$STATUS_FILE" "health" "$(jq -n \
-            --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
-            --arg peer_connected "$(safe_field "$HB_JSON" '.peer_connected')" \
-            --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
-            --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
-            --arg mesh_ok "$(safe_field "$MESH_JSON" '.mesh_ok')" \
-            '{api_ok:$api_ok, peer_connected:$peer_connected, syncthing_ready:$syncthing_ready, quic_ok:$quic_ok, mesh_ok:$mesh_ok}')"
-    fi
+        SECONDARY-PASSIVE)
+            json_set_raw "$STATUS_FILE" "health" "$(jq -n \
+                --arg hb "$(safe_field "$HB_JSON" '.heartbeat_ok')" \
+                --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
+                --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
+                '{heartbeat_ok:$hb, api_ok:$api_ok, quic_ok:$quic_ok}')"
+            ;;
+
+        OFFSITE)
+            json_set_raw "$STATUS_FILE" "health" "$(jq -n \
+                --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
+                '{api_ok:$api_ok}')"
+            ;;
+
+        *)
+            json_set_raw "$STATUS_FILE" "health" "$(jq -n \
+                --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
+                --arg peer_connected "$(safe_field "$HB_JSON" '.peer_connected')" \
+                --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
+                --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
+                --arg mesh_ok "$(safe_field "$MESH_JSON" '.mesh_ok')" \
+                '{api_ok:$api_ok, peer_connected:$peer_connected, syncthing_ready:$syncthing_ready, quic_ok:$quic_ok, mesh_ok:$mesh_ok}')"
+            ;;
+    esac
 
     # supervisor block only for ACTIVE roles
-    if [[ "$ROLE" == MASTERZERO-ACTIVE || "$ROLE" == MASTERZERO-DEGRADED || "$ROLE" == SECONDARY-ACTIVE ]]; then
-        json_set_raw "$STATUS_FILE" "supervisor" "$(jq -n \
-            --arg handshake "$(jq -r '.handshake // "unknown"' "$SUP_JSON")" \
-            --arg verify "$(jq -r '.verify // "unknown"' "$SUP_JSON")" \
-            --arg activate "$(jq -r '.activate // "unknown"' "$SUP_JSON")" \
-            '{handshake:$handshake, verify:$verify, activate:$activate}')"
-    fi
+    case "$ROLE" in
+        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|SECONDARY-ACTIVE)
+            json_set_raw "$STATUS_FILE" "supervisor" "$(jq -n \
+                --arg handshake "$(safe_field "$SUP_JSON" '.handshake')" \
+                --arg verify "$(safe_field "$SUP_JSON" '.verify')" \
+                --arg activate "$(safe_field "$SUP_JSON" '.activate')" \
+                '{handshake:$handshake, verify:$verify, activate:$activate}')"
+            ;;
+    esac
 
     json_finalize "$STATUS_FILE"
-
     /opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"
 
     log "Phoenix status written to $STATUS_FILE"

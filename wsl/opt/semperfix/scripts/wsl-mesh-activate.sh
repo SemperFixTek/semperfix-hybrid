@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
-# Phoenix v2 — Mesh Activation (MASTERZERO-driven)
-
 set -euo pipefail
 
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Normalize line endings
 dos2unix "$0" >/dev/null 2>&1 || true
 
-# Load Phoenix core + JSON helpers
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
@@ -19,13 +15,8 @@ LOGFILE="${LOG_DIR}/mesh-activate.log"
 JSON_OUT="${STATE_DIR}/mesh-activate.json"
 PHOENIX_LOGFILE="$LOGFILE"
 
-log() {
-    phoenix_log_file INFO "$*"
-}
-
-error() {
-    phoenix_log_file FAIL "$*"
-}
+log()  { phoenix_log_file INFO "$*"; }
+error(){ phoenix_log_file FAIL "$*"; }
 
 check_syncthing_api() {
     log "Checking Syncthing API reachability"
@@ -65,7 +56,7 @@ check_quic_listener() {
 }
 
 check_readiness() {
-    log "Checking Syncthing + QUIC readiness (Phoenix v2)"
+    log "Checking Syncthing + QUIC readiness (Phoenix v2.1)"
 
     if ! check_syncthing_api; then
         return 1
@@ -76,14 +67,14 @@ check_readiness() {
     fi
 
     json_set "$JSON_OUT" "syncthing_ready" "true"
-    log "Phoenix v2 readiness check passed"
+    log "Phoenix v2.1 readiness check passed"
     return 0
 }
 
-activate_mesh_masterzero() {
-    log "MASTERZERO performing full mesh activation"
+activate_mesh_controller() {
+    log "${NODE_ROLE} performing controller-side mesh activation"
 
-    json_set "$JSON_OUT" "activation_role" "MASTERZERO"
+    json_set "$JSON_OUT" "activation_role" "$NODE_ROLE"
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
     if ! check_readiness; then
@@ -92,7 +83,6 @@ activate_mesh_masterzero() {
         return 1
     fi
 
-    # QUIC activation probe
     log "Sending QUIC activation probe to ${PEER_IP}:${PHOENIX_QUIC_PORT}"
 
     if ! echo "phoenix-activate" | socat -u - UDP-SENDTO:"${PEER_IP}:${PHOENIX_QUIC_PORT}" >/dev/null 2>&1; then
@@ -108,10 +98,11 @@ activate_mesh_masterzero() {
     return 0
 }
 
-activate_mesh_secondary() {
-    log "SECONDARY acknowledging mesh activation"
-    json_set "$JSON_OUT" "activation_role" "SECONDARY"
+activate_mesh_secondary_passive() {
+    log "SECONDARY-PASSIVE acknowledging mesh activation (responder mode)"
+    json_set "$JSON_OUT" "activation_role" "SECONDARY-PASSIVE"
     json_set "$JSON_OUT" "activate_status" "pass"
+    json_set "$JSON_OUT" "quic_activation_sent" "not_applicable"
     return 0
 }
 
@@ -119,6 +110,7 @@ activate_mesh_offsite() {
     log "OFFSITE node: mesh activation not applicable"
     json_set "$JSON_OUT" "activation_role" "OFFSITE"
     json_set "$JSON_OUT" "activate_status" "not_applicable"
+    json_set "$JSON_OUT" "quic_activation_sent" "not_applicable"
     return 0
 }
 
@@ -132,15 +124,23 @@ main() {
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
     case "$NODE_ROLE" in
-        MASTERZERO)
-            activate_mesh_masterzero
+
+        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
+            activate_mesh_controller
             ;;
-        SECONDARY)
-            activate_mesh_secondary
+
+        SECONDARY-ACTIVE)
+            activate_mesh_controller
             ;;
+
+        SECONDARY-PASSIVE)
+            activate_mesh_secondary_passive
+            ;;
+
         OFFSITE)
             activate_mesh_offsite
             ;;
+
         *)
             error "Unknown NODE_ROLE: $NODE_ROLE"
             json_set "$JSON_OUT" "activate_status" "fail"
@@ -148,8 +148,6 @@ main() {
     esac
 
     json_finalize "$JSON_OUT"
-
-    # Fix permissions for Syncthing + Windows
     /opt/semperfix/scripts/json-perms.sh "$JSON_OUT"
 }
 
