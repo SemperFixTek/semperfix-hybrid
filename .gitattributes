@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
+*.{ps1,[pP][sS]1} text eol=crlf
+*.{sh,[sS][hH]} text eol=lf
+*.{yml,[yY][mM][lL]} text eol=lf
+*.{yaml,[yY][aA][mM][lL]} text eol=lf
+*.{json,[jJ][sS][oO][nN]} text eol=lf
+*.{timer,[tT][iI][mM][eE][rR]} text eol=lf
+*.{service,[sS][eE][rR][vV][iI][cC][eE]} text eol=lf
+*.{md,[mM][d]} text eol=crlf
+*.{txt,[tT][xX][tT]} text eol=crlf
