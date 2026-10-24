@@ -3,7 +3,7 @@ Description=Phoenix Cluster Dashboard
 After=network.target
 
 [Service]
-Umask=002
+UMask=002
 User=root
 Group=semperfix
 
