@@ -10,7 +10,7 @@ export LANG=C.UTF-8
 
 # Phoenix v2 directories
 source /opt/semperfix/scripts/phoenix-core.sh
-phoenix_load_config
+phoenix_init
 
 mkdir -p "${STATE_DIR}"
 mkdir -p "${LOG_DIR}"
@@ -89,7 +89,7 @@ if command -v ufw >/dev/null 2>&1; then
     sudo ufw status | grep -q "22000/udp" || sudo ufw allow 22000/udp >/dev/null 2>&1
     sudo ufw status | grep -q "22000/tcp" || sudo ufw allow 22000/tcp >/dev/null 2>&1
 
-    if [[ "${NODE_ROLE}" == "SECONDARY" ]]; then
+    if [[ "${NODE_ROLE}" == "SECONDARY-ACTIVE" ]]; then
         # Phoenix QUIC responder (22001) — only SECONDARY
         sudo ufw status | grep -q "22001/udp" || sudo ufw allow 22001/udp >/dev/null 2>&1
         log "Firewall rules ensured for SECONDARY."

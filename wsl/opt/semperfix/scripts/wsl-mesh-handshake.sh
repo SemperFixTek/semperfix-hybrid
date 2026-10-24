@@ -33,7 +33,7 @@ check_quic() {
     if nc -zvu "${PEER_IP}" "${PEER_PORT}" &>/dev/null; then
         log "QUIC reachable"
         json_set "$JSON_OUT" "quic_status" "reachable"
-        return 0
+        return 0cd 
     else
         log "QUIC unreachable"
         json_set "$JSON_OUT" "quic_status" "unreachable"

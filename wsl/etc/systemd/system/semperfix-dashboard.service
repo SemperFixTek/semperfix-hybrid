@@ -1,12 +1,30 @@
 [Unit]
 Description=Phoenix Cluster Dashboard
+After=network.target
 
 [Service]
+Umask=002
 User=root
 Group=semperfix
-ExecStart=/usr/bin/python3 /opt/semperfix/dashboard/server.py
+
+# Ensure Flask can find templates + static files
 WorkingDirectory=/opt/semperfix/dashboard
+
+# Correct Python invocation
+ExecStart=/usr/bin/python3 /opt/semperfix/dashboard/server.py
+
+# Prevent restart storms
 Restart=always
+RestartSec=3
+
+# Required environment for Python + JSON + Flask
+Environment=PYTHONUNBUFFERED=1
+Environment=LC_ALL=C.UTF-8
+Environment=LANG=C.UTF-8
+
+# Required so systemd doesn't treat Flask output as a crash
+StandardOutput=append:/opt/semperfix/logs/dashboard.log
+StandardError=append:/opt/semperfix/logs/dashboard.log
 
 [Install]
 WantedBy=multi-user.target
