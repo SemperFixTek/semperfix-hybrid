@@ -7,7 +7,8 @@
     "node_ip": "192.168.1.130",
     "gateway_ip": "192.168.1.1",
     "dns1": "1.1.1.1",
-    "dns2": "1.0.0.1"
+    "dns2": "1.0.0.1",
+    "network_mode": "mirrored"
   },
 
   "syncthing": {

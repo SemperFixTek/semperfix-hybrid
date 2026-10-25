@@ -118,6 +118,7 @@ phoenix_load_config() {
         GATEWAY_IP=$(jq -r '.node.gateway_ip // empty' "$CONFIG_JSON")
         DNS1=$(jq -r '.node.dns1 // empty' "$CONFIG_JSON")
         DNS2=$(jq -r '.node.dns2 // empty' "$CONFIG_JSON")
+        NETWORK_MODE=$(jq -r '.node.network_mode // empty' "$CONFIG_JSON")
 
         PEER_IP=$(jq -r '.syncthing.peer_ip // empty' "$CONFIG_JSON")
         PEER_PORT=$(jq -r '.syncthing.peer_port // empty' "$CONFIG_JSON")
@@ -135,6 +136,7 @@ phoenix_load_config() {
     [[ -z "$GATEWAY_IP" ]] && phoenix_error "Missing node.gateway_ip in phoenix.json"
     [[ -z "$DNS1" ]] && phoenix_error "Missing node.dns1 in phoenix.json"
     [[ -z "$DNS2" ]] && phoenix_error "Missing node.dns2 in phoenix.json"
+    [[ -z "$NETWORK_MODE" ]] && phoenix_error "Missing node.network_mode in phoenix.json"
 
     [[ -z "$STATE_DIR" ]] && phoenix_error "Missing node.state_dir in phoenix.json"
     [[ -z "$LOG_DIR" ]] && phoenix_error "Missing node.log_dir in phoenix.json"
@@ -155,7 +157,7 @@ phoenix_load_config() {
 
     # ---------- Export unified variables ----------
     export NODE_ROLE HOSTNAME
-    export NODE_IP GATEWAY_IP DNS1 DNS2
+    export NODE_IP GATEWAY_IP DNS1 DNS2 NETWORK_MODE
     export STATE_DIR LOG_DIR
     export API_URL API_KEY
     export PEER_IP PEER_PORT

@@ -43,7 +43,7 @@ log "Switching Phoenix node role to: $NEW_ROLE"
 # 1. Update phoenix.json
 # ------------------------------------------------------------
 log "Updating phoenix.json"
-jq --arg role "$NEW_ROLE" '.role = $role' "$ROLE_FILE" > "${ROLE_FILE}.tmp"
+jq --arg role "$NEW_ROLE" '.node.role = $role' "$ROLE_FILE" > "${ROLE_FILE}.tmp"
 mv "${ROLE_FILE}.tmp" "$ROLE_FILE"
 
 # ------------------------------------------------------------
@@ -99,6 +99,7 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
             semperfix-phoenix-descalate.timer \
@@ -115,6 +116,7 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
             semperfix-quic-client.timer \
@@ -130,6 +132,7 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-supervisor.timer \
             semperfix-quic-client.timer \
@@ -146,6 +149,7 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
             semperfix-phoenix-descalate.timer \
@@ -170,6 +174,7 @@ case "$NEW_ROLE" in
             semperfix-mirror-secondary.timer
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
             semperfix-phoenix-heartbeat.timer \
@@ -189,6 +194,7 @@ case "$NEW_ROLE" in
             
 
         start_units \
+            semperfix-network-normalizer.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-state-export-windows.timer

@@ -2,165 +2,157 @@
 set -euo pipefail
 
 # ---------------------------------------------------------
-# 0. Phoenix core + config
+# Phoenix bootstrap
 # ---------------------------------------------------------
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Phoenix v2 directories
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
 mkdir -p "${STATE_DIR}"
 mkdir -p "${LOG_DIR}"
 
-dos2unix "$0" 2>/dev/null || true
-
 LOG="${LOG_DIR}/linux-normalizer.log"
 
 log() {
-    echo "[INFO] $1" | tee -a "$LOG"
+    echo "[$(date -Iseconds)] $*" | tee -a "$LOG"
 }
 
-log "SemperFix Linux Normalizer starting for node role: ${NODE_ROLE}"
-
-DNS="${DNS1}"
-DNS2="${DNS2}"
+log "Linux normalizer started."
+log "Node role: ${NODE_ROLE}"
 
 # ---------------------------------------------------------
-# 1. Determine primary interface (default route)
+# Detect WSL + mirrored networking
 # ---------------------------------------------------------
-IFACE=$(ip route show default 2>/dev/null | awk '{print $5}' | head -n1 || true)
 
-if [[ -z "${IFACE}" ]]; then
-    log "No default route interface found — skipping IP/route normalization."
+IS_WSL=false
+IS_MIRRORED=false
+
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    IS_WSL=true
+fi
+
+if [[ "$NETWORK_MODE" == "mirrored"]]; then
+    IS_MIRRORED=true
+fi
+
+log "WSL detected: ${IS_WSL}"
+log "Mirrored networking detected: ${IS_MIRRORED}"
+
+# ---------------------------------------------------------
+# Network information only
+# Never modify networking under mirrored mode
+# ---------------------------------------------------------
+
+if [[ "${IS_WSL}" == "true" && "${IS_MIRRORED}" == "true" ]]; then
+
+    CURRENT_IP=$(hostname -I | awk '{print $1}')
+    DEFAULT_ROUTE=$(ip route show default | head -1 || true)
+
+    log "Current IP: ${CURRENT_IP}"
+    log "Current route: ${DEFAULT_ROUTE}"
+
+    echo "${CURRENT_IP}" > "${STATE_DIR}/wsl-ip.txt"
+
+    log "Windows-owned networking detected."
+    log "Skipping IP enforcement."
+    log "Skipping route enforcement."
+    log "Skipping interface modification."
+
 else
-    log "Using interface: ${IFACE}"
+
+    log "Non-mirrored networking mode."
+
+    # If you really want route enforcement, do it only here.
+    # Never in mirrored mode.
+
 fi
 
 # ---------------------------------------------------------
-# 2. Ensure static IP is present
+# DNS
 # ---------------------------------------------------------
-if [[ -n "${IFACE}" ]]; then
-    EXPECTED_IP="${NODE_IP}"
-    CURRENT_IP=$(ip -4 addr show "${IFACE}" | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || true)
 
-    if [[ -z "${CURRENT_IP}" ]]; then
-        log "No IPv4 address found on ${IFACE}."
-    fi
-
-    if [[ "${CURRENT_IP}" != "${EXPECTED_IP}" ]]; then
-        log "IP mismatch: expected ${EXPECTED_IP}, found ${CURRENT_IP:-none} — correcting..."
-        sudo ip addr flush dev "${IFACE}"
-        sudo ip addr add "${EXPECTED_IP}/24" dev "${IFACE}"
-    else
-        log "IP address correct: ${CURRENT_IP}"
-    fi
-fi
-
-# ---------------------------------------------------------
-# 2b. Export WSL IP for Windows-side scripts
-# ---------------------------------------------------------
-WSL_IP=$(hostname -I | awk '{print $1}')
-echo "$WSL_IP" > "${STATE_DIR}/wsl-ip.txt"
-echo "[$(date -Iseconds)] WSL IP normalized: $WSL_IP" >> "${LOG_DIR}/network.log"
-log "WSL IP exported for Windows-side scripts: ${WSL_IP}"
-
-# ---------------------------------------------------------
-# 3. Ensure default route exists
-# ---------------------------------------------------------
-GATEWAY="${GATEWAY_IP}"
-
-if ip route show default 2>/dev/null | grep -q "${GATEWAY}"; then
-    log "Default route OK via ${GATEWAY}"
-else
-    log "Default route missing or incorrect — adding route via ${GATEWAY}"
-    sudo ip route add default via "${GATEWAY}" || log "Failed to add default route via ${GATEWAY}"
-fi
-
-# ---------------------------------------------------------
-# 4. Firewall rules (role-aware, non-destructive)
-# ---------------------------------------------------------
-if command -v ufw >/dev/null 2>&1; then
-    log "Evaluating firewall rules for node role: ${NODE_ROLE}"
-
-    # Syncthing QUIC (22000) — required on ALL nodes
-    sudo ufw status | grep -q "22000/udp" || sudo ufw allow 22000/udp >/dev/null 2>&1
-    sudo ufw status | grep -q "22000/tcp" || sudo ufw allow 22000/tcp >/dev/null 2>&1
-
-    if [[ "${NODE_ROLE}" == "SECONDARY-ACTIVE" ]]; then
-        # Phoenix QUIC responder (22001) — only SECONDARY
-        sudo ufw status | grep -q "22001/udp" || sudo ufw allow 22001/udp >/dev/null 2>&1
-        log "Firewall rules ensured for SECONDARY."
-    else
-        # MASTERZERO + OFFSITE — deny QUIC responder port without deleting rules
-        sudo ufw deny 22001/udp >/dev/null 2>&1 || true
-        log "Firewall rules pruned for ${NODE_ROLE}."
-    fi
-else
-    log "UFW not installed — skipping firewall rules."
-fi
-
-# ---------------------------------------------------------
-# 5. QUIC responder (role-aware, non-destructive)
-# ---------------------------------------------------------
-log "Evaluating QUIC responder requirements for node role: ${NODE_ROLE}"
-
-if [[ "${NODE_ROLE}" == "SECONDARY" ]]; then
-    log "Node is SECONDARY — QUIC responder should be active."
-
-    if systemctl is-active --quiet semperfix-quic-responder.service; then
-        log "QUIC responder service is active."
-    else
-        log "QUIC responder NOT active — restarting service..."
-        sudo systemctl restart semperfix-quic-responder.service || log "Responder restart failed."
-    fi
-else
-    log "Node is ${NODE_ROLE} — QUIC responder must NOT run here."
-
-    sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
-    sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
-
-    log "QUIC responder disabled for ${NODE_ROLE}."
-fi
-
-# ---------------------------------------------------------
-# 6. Ensure systemd-resolved DNS stability
-# ---------------------------------------------------------
 if systemctl is-active --quiet systemd-resolved; then
-    log "Ensuring DNS stability via systemd-resolved..."
 
-    sudo sed -i "s/^DNS=.*/DNS=${DNS}/" /etc/systemd/resolved.conf || true
-    sudo sed -i "s/^FallbackDNS=.*/FallbackDNS=${DNS2}/" /etc/systemd/resolved.conf || true
+    mkdir -p /etc/systemd/resolved.conf.d
 
-    sudo systemctl restart systemd-resolved || log "systemd-resolved restart failed."
-    log "DNS stabilized via systemd-resolved."
+    cat >/etc/systemd/resolved.conf.d/semperfix.conf <<EOF
+[Resolve]
+DNS=${DNS1}
+FallbackDNS=${DNS2}
+EOF
+
+    systemctl restart systemd-resolved || true
+
+    log "DNS configuration verified."
+
 else
-    log "systemd-resolved inactive — skipping DNS stabilization."
+
+    log "systemd-resolved unavailable."
+
 fi
 
 # ---------------------------------------------------------
-# 7. WSL2 awareness (non-destructive)
+# Firewall
 # ---------------------------------------------------------
-if grep -q "WSL" /proc/version; then
-    log "WSL detected — verifying config persistence policy."
 
-    if [[ -f /etc/wsl.conf ]]; then
-        if grep -q "systemd=true" /etc/wsl.conf; then
-            log "wsl.conf contains systemd=true — respecting immutable config policy."
+if command -v ufw >/dev/null 2>&1; then
+
+    ufw allow 22000/tcp >/dev/null 2>&1 || true
+    ufw allow 22000/udp >/dev/null 2>&1 || true
+
+    if [[ "${NODE_ROLE}" =~ SECONDARY ]]; then
+        ufw allow 22001/udp >/dev/null 2>&1 || true
+    fi
+
+    log "Firewall normalization complete."
+
+fi
+
+# ---------------------------------------------------------
+# QUIC responder
+# ---------------------------------------------------------
+
+case "${NODE_ROLE}" in
+
+    "SECONDARY-PASSIVE")
+
+        log "Role=${NODE_ROLE} : QUIC responder required."
+
+        if systemctl is-active --quiet semperfix-quic-responder.service; then
+            log "QUIC responder already active."
         else
-            log "systemd=true missing in wsl.conf — NOT modifying due to protection policy."
+            log "Starting QUIC responder..."
+            sudo systemctl restart semperfix-quic-responder.service \
+                || log "Responder restart failed."
         fi
-    else
-        log "wsl.conf not found — WSL may be using defaults."
-    fi
+        ;;
 
-    if systemctl is-active --quiet systemd-resolved; then
-        log "WSL DNS persistence handled via systemd-resolved; not touching /etc/resolv.conf."
-    else
-        log "systemd-resolved inactive under WSL — DNS behavior may be non-standard."
-    fi
-fi
+    "SECONDARY-ACTIVE"|"MASTERZERO-ACTIVE"|"MASTERZERO-DEGRADED"|"MASTERZERO-RECOVER"|"OFFSITE")
 
-log "SemperFix Linux Normalizer complete for node role: ${NODE_ROLE}"
+        log "Role=${NODE_ROLE} : QUIC responder must be disabled."
+
+        sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
+        sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
+        ;;
+
+    *)
+
+        log "Unknown role: ${NODE_ROLE}"
+
+        sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
+        sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
+        ;;
+
+esac
+
+# ---------------------------------------------------------
+# Export runtime state
+# ---------------------------------------------------------
+
+ip route show > "${STATE_DIR}/routes.txt"
+ip addr show > "${STATE_DIR}/interfaces.txt"
+
+log "Normalizer complete."
