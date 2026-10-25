@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — State Export (Windows)
+# Version: Phoenix v2.1
+# Component: wsl-state-export-windows
+# Role: Controller / Responder / Observer (role-aware)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002

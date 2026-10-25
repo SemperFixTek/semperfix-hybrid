@@ -2,7 +2,7 @@
 # =====================================================================
 # Phoenix Automation Suite — Mesh Handshake
 # Version: Phoenix v2.1
-# Component: mesh-handshake
+# Component: wsl-mesh-handshake
 # Role: Controller / Responder / Observer (role‑aware)
 # Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
 # Maintainer: SemperFix Automation (Bruce)

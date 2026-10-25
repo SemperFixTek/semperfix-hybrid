@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# =====================================================================
+# Phoenix Automation Suite — Failover
+# Version: Phoenix v2.1
+# Component: phoenix-failover
+# Role: Controller / Responder / Observer (role-aware)
+# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
@@ -88,7 +97,7 @@ main() {
     mesh_bad=$(is_mesh_degraded)
     quic_bad=$(is_quic_unreachable)
     syncthing_bad=$(is_syncthing_unreachable)
-    
+
     log "heartbeat_stale=$heartbeat_stale"
     log "mesh_bad=$mesh_bad"
     log "quic_bad=$quic_bad"
