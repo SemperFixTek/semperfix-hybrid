@@ -32,30 +32,62 @@ log() { phoenix_log_file "INFO" "$*"; }
 safe_field() {
     local file="$1"
     local field="$2"
-    jq -r "$field // \"not_applicable\"" "$file" 2>/dev/null || echo "not_applicable"
+
+    jq -r "$field // \"not_applicable\"" "$file" 2>/dev/null \
+        || echo "not_applicable"
+}
+
+compute_mesh_ok() {
+    local handshake verify activate
+
+    handshake=$(safe_field "$SUP_JSON" '.handshake_status')
+    verify=$(safe_field "$SUP_JSON" '.verify_status')
+    activate=$(safe_field "$SUP_JSON" '.activate_status')
+
+    if [[ "$handshake" == "pass" \
+       && "$verify" == "pass" \
+       && "$activate" == "pass" ]]; then
+        echo "true"
+    else
+        echo "false"
+    fi
 }
 
 detect_role() {
     local base_role="$NODE_ROLE"
 
-
-    # Promotion detection → SECONDARY-ACTIVE
+    #
+    # Promotion detection
+    #
     if [[ -f "$FAIL_JSON" ]]; then
         local promoted
+
         promoted=$(jq -r '.promoted // "false"' "$FAIL_JSON" 2>/dev/null)
+
         if [[ "$promoted" == "true" ]]; then
             base_role="SECONDARY-ACTIVE"
         fi
     fi
 
+    #
     # MASTERZERO degraded detection
+    # Supervisor is authoritative.
+    #
     if [[ "$base_role" == "MASTERZERO-ACTIVE" ]]; then
-        local handshake verify activate
-        handshake=$(safe_field "$MESH_JSON" '.handshake_status')
-        verify=$(safe_field "$MESH_JSON" '.verify_status')
-        activate=$(safe_field "$MESH_JSON" '.activate_status')
 
-        if [[ "$handshake" != "pass" || "$verify" != "pass" || "$activate" != "pass" ]]; then
+        local handshake
+        local verify
+        local activate
+
+        handshake=$(safe_field "$SUP_JSON" '.handshake_status')
+        verify=$(safe_field "$SUP_JSON" '.verify_status')
+        activate=$(safe_field "$SUP_JSON" '.activate_status')
+
+        log "DEBUG role-check handshake=$handshake verify=$verify activate=$activate"
+
+        if [[ "$handshake" != "pass" \
+           || "$verify" != "pass" \
+           || "$activate" != "pass" ]]; then
             base_role="MASTERZERO-DEGRADED"
         fi
     fi
@@ -101,15 +133,26 @@ write_status() {
                 '{api_ok:$api_ok}')"
             ;;
 
-        *)
-            json_set_raw "$STATUS_FILE" "health" "$(jq -n \
-                --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
-                --arg peer_connected "$(safe_field "$HB_JSON" '.peer_connected')" \
-                --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
-                --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
-                --arg mesh_ok "$(safe_field "$MESH_JSON" '.mesh_ok')" \
-                '{api_ok:$api_ok, peer_connected:$peer_connected, syncthing_ready:$syncthing_ready, quic_ok:$quic_ok, mesh_ok:$mesh_ok}')"
-            ;;
+                *)
+                    local mesh_ok
+                    mesh_ok=$(compute_mesh_ok)
+
+                    log "mesh_ok=${mesh_ok}"
+
+                    json_set_raw "$STATUS_FILE" "health" "$(jq -n \
+                        --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
+                        --arg peer_connected "$(safe_field "$HB_JSON" '.peer_connected')" \
+                        --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
+                        --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
+                        --arg mesh_ok "$mesh_ok" \
+                        '{
+                            api_ok:$api_ok,
+                            peer_connected:$peer_connected,
+                            syncthing_ready:$syncthing_ready,
+                            quic_ok:$quic_ok,
+                            mesh_ok:$mesh_ok
+                        }')"
+                ;;
     esac
 
     # supervisor block only for ACTIVE roles

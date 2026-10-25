@@ -40,8 +40,21 @@ is_mesh_degraded() {
 }
 
 is_quic_unreachable() {
-    jq -r '.quic_reachable == "false"' \
-        "${STATE_DIR}/quic-client-status.json" 2>/dev/null || echo "true"
+    local value
+
+    if ! value=$(jq -r '.quic_reachable' \
+        "${STATE_DIR}/quic-client-status.json" 2>/dev/null)
+    then
+        log "QUIC status file unreadable"
+        echo "unknown"
+        return
+    fi
+
+    log "QUIC reachable=$value"
+
+    [[ "$value" == "false" ]] \
+        && echo "true" \
+        || echo "false"
 }
 
 is_syncthing_unreachable() {
@@ -66,7 +79,7 @@ main() {
             exit 0
             ;;
     esac
-
+    
     local heartbeat_stale mesh_bad quic_bad syncthing_bad
     local failover_needed="false"
     local reason="none"
@@ -75,19 +88,26 @@ main() {
     mesh_bad=$(is_mesh_degraded)
     quic_bad=$(is_quic_unreachable)
     syncthing_bad=$(is_syncthing_unreachable)
+    
+    log "heartbeat_stale=$heartbeat_stale"
+    log "mesh_bad=$mesh_bad"
+    log "quic_bad=$quic_bad"
+    log "syncthing_bad=$syncthing_bad"
 
     if [[ "$heartbeat_stale" == "true" ]]; then
         failover_needed="true"
         reason="heartbeat_stale"
     elif [[ "$mesh_bad" == "true" ]]; then
         failover_needed="true"
-        reason="mesh_degraded"
-    elif [[ "$quic_bad" == "true" ]]; then
-        failover_needed="true"
-        reason="quic_unreachable"
+        reason="mesh_degraded"  
     elif [[ "$syncthing_bad" == "true" ]]; then
         failover_needed="true"
         reason="syncthing_unreachable"
+    elif [[ "$quic_bad" == "true" ]]; then
+        failover_needed="true"
+        reason="quic_unreachable"
+    elif [[ "$quic_bad" == "unknown" ]]; then
+        log "Skipping failover decision because QUIC state is unknown"
     fi
 
     # Write failover telemetry

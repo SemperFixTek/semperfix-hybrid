@@ -34,7 +34,7 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
     IS_WSL=true
 fi
 
-if [[ "$NETWORK_MODE" == "mirrored"]]; then
+if [[ "${NETWORK_MODE}" == "mirrored" ]]; then
     IS_MIRRORED=true
 fi
 
