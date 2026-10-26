@@ -102,19 +102,20 @@ main() {
     log "mesh_bad=$mesh_bad"
     log "quic_bad=$quic_bad"
     log "syncthing_bad=$syncthing_bad"
+    log "node_role=${NODE_ROLE}"
 
     if [[ "$heartbeat_stale" == "true" ]]; then
         failover_needed="true"
         reason="heartbeat_stale"
-    elif [[ "$mesh_bad" == "true" ]]; then
+    elif [[ "${mesh_bad}" == "true" && "${quic_bad}" == "true" ]]; then
         failover_needed="true"
-        reason="mesh_degraded"  
+        reason="mesh-quic_degraded"  
     elif [[ "$syncthing_bad" == "true" ]]; then
         failover_needed="true"
         reason="syncthing_unreachable"
-    elif [[ "$quic_bad" == "true" ]]; then
-        failover_needed="true"
-        reason="quic_unreachable"
+    #elif [[ "$quic_bad" == "true" ]]; then
+    #    failover_needed="true"
+    #    reason="quic_unreachable"
     elif [[ "$quic_bad" == "unknown" ]]; then
         log "Skipping failover decision because QUIC state is unknown"
     fi

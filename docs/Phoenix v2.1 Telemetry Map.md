@@ -184,9 +184,9 @@ Validated by:
 phoenix-status-validate
 6. Telemetry Flow Diagram
 Code
-                ┌──────────────────────────┐
+┌──────────────────────────┐
                 │   phoenix-heartbeat.sh   │
-                └──────────────┬──────────┘
+└──────────────┬──────────┘
                                ▼
                      phoenix-heartbeat.json
                                │

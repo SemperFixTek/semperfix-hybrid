@@ -33,7 +33,7 @@ check_quic() {
     if nc -zvu "${PEER_IP}" "${PEER_PORT}" &>/dev/null; then
         log "QUIC reachable"
         json_set "$JSON_OUT" "quic_status" "reachable"
-        return 0cd 
+        return 0
     else
         log "QUIC unreachable"
         json_set "$JSON_OUT" "quic_status" "unreachable"
@@ -74,31 +74,80 @@ main() {
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 
     local handshake_status="fail"
+    local syncthing_status="fail"
+    local quic_status="fail"
 
     case "$NODE_ROLE" in
 
         MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
             log "${NODE_ROLE} initiating full mesh handshake"
-            check_syncthing_api
-            check_quic
+
+            if check_syncthing_api; then
+                syncthing_status="pass"
+            else
+                syncthing_status="fail"
+            fi
+
+            if check_quic; then
+                quic_status="pass"
+            else
+                quic_status="fail"
+            fi
+
             dump_peers
-            handshake_status="pass"
+
+            if [[ "$syncthing_status" == "pass" &&
+                "$quic_status" == "pass" ]]; then
+                handshake_status="pass"
+            else
+                handshake_status="fail"
+            fi
+
             ;;
 
         SECONDARY-ACTIVE)
             log "SECONDARY-ACTIVE performing controller-side handshake"
-            check_syncthing_api
-            check_quic
+            if check_syncthing_api; then
+                syncthing_status="pass"
+            else
+                syncthing_status="fail"
+            fi
+
+            if check_quic; then
+                quic_status="pass"
+            else
+                quic_status="fail"
+            fi
+
             dump_peers
-            handshake_status="pass"
+
+            if [[ "$syncthing_status" == "pass" &&
+                "$quic_status" == "pass" ]]; then
+                handshake_status="pass"
+            else
+                handshake_status="fail"
+            fi
             ;;
 
         SECONDARY-PASSIVE)
             log "SECONDARY-PASSIVE performing responder-side diagnostics"
-            check_syncthing_api
-            dump_peers
+            
+            if check_syncthing_api; then
+                syncthing_status="pass"
+            else
+                syncthing_status="fail"
+            fi
+
+             dump_peers
+
+            if [[ "$quic_status" == "pass" ]]; then
+                handshake_status="pass"
+            else
+                handshake_status="fail"
+            fi
+           
             json_set "$JSON_OUT" "quic_status" "handled_by_responder"
-            handshake_status="pass"
+            
             ;;
 
         OFFSITE)

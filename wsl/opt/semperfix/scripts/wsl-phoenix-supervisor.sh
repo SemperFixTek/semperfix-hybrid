@@ -37,6 +37,7 @@ main() {
     local handshake_status="not_applicable"
     local verify_status="not_applicable"
     local activate_status="not_applicable"
+    local recovery_status="false"
 
     case "$ROLE" in
 
@@ -46,6 +47,18 @@ main() {
             if run_handshake; then handshake_status="pass"; else handshake_status="fail"; fi
             if run_verify;    then verify_status="pass";    else verify_status="fail";    fi
             if run_activate;  then activate_status="pass";  else activate_status="fail";  fi
+            
+            log "handshake status: $handshake_status"
+            log "verify status: $verify_status"
+            log "activate status: $activate_status"
+            log "Evaluating recovery potential for MASTERZERO"
+            
+            recovery_status=$(    
+                [[ $verify_status == "pass" && $handshake_status == "pass" && $activate_status == "pass" ]] &&
+                echo "true" ||
+                echo "false"
+            )
+            log "recovery_status=$recovery_status"
             ;;
 
         SECONDARY-ACTIVE)
@@ -79,6 +92,10 @@ main() {
             ;;
     esac
 
+    
+    
+   
+
     json_init "$SUP_FILE"
 
     json_set "$SUP_FILE" "timestamp" "$(date -Iseconds)"
@@ -86,6 +103,7 @@ main() {
     json_set "$SUP_FILE" "handshake_status" "$handshake_status"
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
+    json_set "$SUP_FILE" "recovery_status" "$recovery_status"
 
     # Backward compatibility
     json_set "$SUP_FILE" "handshake" "$handshake_status"

@@ -52,8 +52,8 @@ log "Switching Phoenix node role to: $NEW_ROLE"
 # 1. Update phoenix.json
 # ------------------------------------------------------------
 log "Updating phoenix.json"
-jq --arg role "$NEW_ROLE" '.node.role = $role' "$ROLE_FILE" > "${ROLE_FILE}.tmp"
-mv "${ROLE_FILE}.tmp" "$ROLE_FILE"
+jq --arg role "${NEW_ROLE}" '.node.role = $role' "${ROLE_FILE}" > "${ROLE_FILE}.tmp"
+mv "${ROLE_FILE}.tmp" "${ROLE_FILE}"
 
 # ------------------------------------------------------------
 # 2. Telemetry Vacuum — remove stale JSON
@@ -105,15 +105,21 @@ case "$NEW_ROLE" in
         stop_units \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-state-export-windows.timer
+            semperfix-phoenix-promote.service \
+            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recovery.timer \
+            semperfix-state-export-windows.timer \
+            semperfix-state-export-windows.service \
+            semperfix-phoenix-descalate.timer \
+            semperfix-phoenix-descalate.service \
 
         start_units \
             semperfix-network-normalizer.service \
+            semperfix-inotify.service \
+            semperfix-mesh-listener.service \
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
-            semperfix-phoenix-descalate.timer \
             semperfix-quic-client.timer \
-            semperfix-mesh-listener.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-mirror-secondary.timer
@@ -121,15 +127,24 @@ case "$NEW_ROLE" in
 
     MASTERZERO-DEGRADED)
         stop_units \
-            semperfix-phoenix-descalate.timer \
-            semperfix-state-export-windows.timer
+            semperfix-quic-responder.service \
+            semperfix-phoenix-promote.timer \
+            semperfix-phoenix-promote.service \
+            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recovery.timer \
+            semperfix-state-export-windows.timer \
+            semperfix-state-export-windows.service \
+            semperfix-phoenix-failover.timer \
+            semperfix-phoenix-failover.service \
 
         start_units \
             semperfix-network-normalizer.service \
-            semperfix-phoenix-supervisor.timer \
-            semperfix-phoenix-failover.timer \
-            semperfix-quic-client.timer \
+            semperfix-inotify.service \
             semperfix-mesh-listener.service \
+            semperfix-phoenix-recovery.timer \
+            semperfix-phoenix-supervisor.timer \
+            semperfix-phoenix-descalate.timer \
+            semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-mirror-secondary.timer
@@ -137,15 +152,21 @@ case "$NEW_ROLE" in
 
     MASTERZERO-RECOVER)
         stop_units \
+            semperfix-quic-responder.service \
+            semperfix-phoenix-promote.timer \
+            semperfix-phoenix-promote.service \
+            semperfix-state-export-windows.timer \
+            semperfix-state-export-windows.service \
             semperfix-phoenix-failover.timer \
-            semperfix-state-export-windows.timer
+            semperfix-phoenix-failover.service \
 
         start_units \
             semperfix-network-normalizer.service \
-            semperfix-phoenix-descalate.timer \
-            semperfix-phoenix-supervisor.timer \
-            semperfix-quic-client.timer \
+            semperfix-inotify.service \
             semperfix-mesh-listener.service \
+            semperfix-phoenix-supervisor.timer \
+            semperfix-phoenix-descalate.timer \
+            semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-mirror-secondary.timer
@@ -155,15 +176,21 @@ case "$NEW_ROLE" in
         stop_units \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-state-export-windows.timer
+            semperfix-phoenix-promote.service \
+            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recovery.timer \
+            semperfix-state-export-windows.timer \
+            semperfix-state-export-windows.service \
+            semperfix-phoenix-failover.timer \
+            semperfix-phoenix-failover.service \
 
         start_units \
             semperfix-network-normalizer.service \
+            semperfix-inotify.service \
+            semperfix-mesh-listener.service \
             semperfix-phoenix-supervisor.timer \
-            semperfix-phoenix-failover.timer \
             semperfix-phoenix-descalate.timer \
             semperfix-quic-client.timer \
-            semperfix-mesh-listener.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-mirror-secondary.timer
@@ -175,15 +202,19 @@ case "$NEW_ROLE" in
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.service \
             semperfix-phoenix-failover.timer \
+            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recovery.timer \
             semperfix-phoenix-descalate.service \
             semperfix-phoenix-descalate.timer \
             semperfix-quic-client.service \
             semperfix-quic-client.timer \
             semperfix-mesh-listener.service \
-            semperfix-mirror-secondary.timer
+            semperfix-mirror-secondary.timer \
+            semperfix-mirror-secondary.service
 
         start_units \
             semperfix-network-normalizer.service \
+            semperfix-inotify.service \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
             semperfix-phoenix-heartbeat.timer \
@@ -197,18 +228,24 @@ case "$NEW_ROLE" in
             semperfix-quic-client.timer \
             semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
+            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recovery.timer \
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-promote.timer \
             semperfix-mesh-listener.service \
-            
+            semperfix-mirror-secondary.service
 
         start_units \
             semperfix-network-normalizer.service \
+            semperfix-inotify.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-state-export-windows.timer
         ;;
+
 esac
+log "Reloading systemd daemon"
+systemctl daemon-reload
 
 log "Phoenix role switch complete: $NEW_ROLE"
 exit 0

@@ -35,7 +35,7 @@ load_json() {
 master_role=$(jq -r '.node.role // "UNKNOWN"' "${STATE_DIR}/phoenix-status.json" 2>/dev/null)
 secondary_role=$(jq -r '.node.role // "UNKNOWN"' "${STATE_DIR}/secondary/phoenix-status.json" 2>/dev/null)
 
-log "Cluster-view roles: MASTERZERO=$master_role SECONDARY=$secondary_role"
+log "Cluster-view roles: MASTERZERO=${master_role} SECONDARY=${secondary_role}"
 
 # ---------------------------------------------------------
 # MASTERZERO telemetry (always full)
