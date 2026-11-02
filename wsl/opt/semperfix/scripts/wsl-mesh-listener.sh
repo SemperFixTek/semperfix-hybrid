@@ -30,12 +30,19 @@ SYNCTHING_API="${API_URL}/system/status"
 QUIC_IP="${PEER_IP}"
 QUIC_PORT="${PEER_PORT}"
 
+
+
 write_state() {
+
+    log "DEBUG entered write_state arg1='$1' arg2='$2'"
+
     json_init "$STATUS_JSON"
+
     json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
     json_set "$STATUS_JSON" "syncthing_reachable" "$1"
     json_set "$STATUS_JSON" "quic_reachable" "$2"
+
     json_finalize "$STATUS_JSON"
 
     /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
@@ -73,7 +80,7 @@ while true; do
     quic_ok=$(check_quic)
 
     log "Syncthing=${syncthing_ok}  QUIC=${quic_ok}"
-
+echo "BEFORE CALL: syncthing=$syncthing_ok quic=$quic_ok"
     write_state "$syncthing_ok" "$quic_ok"
 
     sleep 5

@@ -11,7 +11,7 @@
     "network_mode": "mirrored"
   },
   "syncthing": {
-    "api_url": "http://192.168.12.130:8384/rest",
+    "api_url": "http://192.168:8384/rest",
     "api_key": "6JqzAfmGaxzynG3kUtjPWcjQVH5MgMTf",
     "peer_ip": "10.10.10.130",
     "peer_port": 22000

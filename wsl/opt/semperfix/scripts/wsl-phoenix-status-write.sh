@@ -73,21 +73,19 @@ get_failover() {
 detect_role() {
     local base_role="$NODE_ROLE"
     PROMO_NEEDED="empty"
-    #
+    
     # Promotion detection
-    #
-# TODO - FAIL_JSON is the wrong generator for promoted, it needs to come from wsl-phoenix-promote    
-    #if [[ -f "$FAIL_JSON" ]]; then
-    #    local promoted
+    
+    
+    if [[ -f "$FAIL_JSON" ]]; then
+        local promoted
 
-    #    promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
+        promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
 
-    #    if [[ "$promoted" == "true" ]]; then
-    PROMO_NEEDED=$(get_failover)
-        if [[ "$PROMO_NEEDED" == "true" ]]; then
+        if [[ "$promoted" == "true" ]]; then
             base_role="SECONDARY-ACTIVE"
         fi
-    #fi
+    fi
 
     #
     # MASTERZERO degraded detection
