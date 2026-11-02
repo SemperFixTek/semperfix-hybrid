@@ -53,21 +53,41 @@ compute_mesh_ok() {
     fi
 }
 
+get_failover() {
+
+        if [[ -f "$FAIL_JSON" ]]; then
+                local promoted
+
+                promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
+  
+        fi
+
+        if [[ promoted == "true" ]]; then
+            echo "true"
+        else
+            echo "false"
+        fi
+
+}
+
 detect_role() {
     local base_role="$NODE_ROLE"
-
+    PROMO_NEEDED="empty"
     #
     # Promotion detection
     #
-    if [[ -f "$FAIL_JSON" ]]; then
-        local promoted
+# TODO - FAIL_JSON is the wrong generator for promoted, it needs to come from wsl-phoenix-promote    
+    #if [[ -f "$FAIL_JSON" ]]; then
+    #    local promoted
 
-        promoted=$(jq -r '.promoted // "false"' "$FAIL_JSON" 2>/dev/null)
+    #    promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
 
-        if [[ "$promoted" == "true" ]]; then
+    #    if [[ "$promoted" == "true" ]]; then
+    PROMO_NEEDED=$(get_failover)
+        if [[ "$PROMO_NEEDED" == "true" ]]; then
             base_role="SECONDARY-ACTIVE"
         fi
-    fi
+    #fi
 
     #
     # MASTERZERO degraded detection
@@ -83,7 +103,7 @@ detect_role() {
         verify=$(safe_field "$SUP_JSON" '.verify_status')
         activate=$(safe_field "$SUP_JSON" '.activate_status')
 
-        log "DEBUG role-check handshake=$handshake verify=$verify activate=$activate"
+    #    log "DEBUG role-check handshake: $handshake verify: $verify activate: $activate"
 
         if [[ "$handshake" != "pass" \
            || "$verify" != "pass" \
@@ -165,6 +185,9 @@ write_status() {
                 '{handshake:$handshake, verify:$verify, activate:$activate}')"
             ;;
     esac
+    
+    PROMOTION_STATE=$(get_failover)
+    json_set "$STATUS_FILE" "promote" "$PROMOTION_STATE"
 
     json_finalize "$STATUS_FILE"
     /opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"

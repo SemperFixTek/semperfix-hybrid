@@ -45,7 +45,7 @@ is_mesh_unstable_local() {
 
 load_recover_state() {
     if [[ -f "$RECOVER_STATE_JSON" ]]; then
-        jq -r '.Recovery_strikes // 0' "$RECOVER_STATE_JSON" 2>/dev/null || echo 0
+        jq -r '.recovery_strikes // 0' "$RECOVER_STATE_JSON" 2>/dev/null || echo 0
     else
         echo 0
     fi
@@ -56,16 +56,20 @@ save_recover_state() {
     json_init "$RECOVER_STATE_JSON"
     json_set "$RECOVER_STATE_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$RECOVER_STATE_JSON" "node_role" "$NODE_ROLE"
-    json_set "$RECOVER_STATE_JSON" "Recovery_strikes" "$strikes"
+    json_set "$RECOVER_STATE_JSON" "recovery_strikes" "$strikes"
     json_finalize "$RECOVER_STATE_JSON"
     /opt/semperfix/scripts/json-perms.sh "$RECOVER_STATE_JSON"
 }
 
-clear_recover_state() {
+clear_recovery_state() {
     json_init "$RECOVER_STATE_JSON"
-    json_set "$RECOVER_STATE_JSON" "Recovery_strikes" "0"
+    json_set "$RECOVER_STATE_JSON" "timestamp" "$(date -Iseconds)"
+    json_set "$RECOVER_STATE_JSON" "node_role" "$NODE_ROLE"
+    json_set "$RECOVER_STATE_JSON" "recovery_strikes" "0"
     json_finalize "$RECOVER_STATE_JSON"
     /opt/semperfix/scripts/json-perms.sh "$RECOVER_STATE_JSON"
+    
+    log "Strike count cleared: $(load_recover_state)"
 }
 
 trigger_recovery() {
@@ -78,7 +82,7 @@ trigger_recovery() {
 # ---------------------------------------------------------
 
 main() {
-    # Only run on passive SECONDARY
+    # Only run MASTERZERO-RECOVER
     [[ "$NODE_ROLE" != "MASTERZERO-RECOVER" ]] && exit 0
 
     local recovery_flag quic_unstable mesh_unstable strikes
@@ -92,7 +96,7 @@ main() {
 
     # Policy:
     # - Supervisor signals signals recovery_needed=true
-    # - QUIC reachable from SECONDARY
+    # - QUIC reachable from MASTERZERO
     # - local mesh stable
     if [[ "$recovery_flag" == "true" && "$quic_unstable" == "false" && "$mesh_unstable" == "false" ]]; then
         strikes=$((strikes + 1))
@@ -104,11 +108,9 @@ main() {
     save_recover_state "$strikes"
 
     # Require 2 consecutive strikes
-    if (( strikes >= 2 )); then
-        trigger_recovery
-        log "Recovery Trigger"
-        clear_recover_state
-        log "Strike count cleared"
+    if (( strikes >= 2 )); then       
+        clear_recovery_state
+        trigger_recovery      
     else
         log "Recovery not yet triggered (strikes<2)"
     fi

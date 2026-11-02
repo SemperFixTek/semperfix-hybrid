@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix Failover Evaluator Timer
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=120s
+Unit=semperfix-phoenix-failover.service
+
+[Install]
+WantedBy=timers.target

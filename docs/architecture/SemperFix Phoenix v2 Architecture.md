@@ -22,12 +22,12 @@ SECONDARY is the standby brain.
 OFFSITE is the observer.
 
 ⭐ Node Roles (Authoritative)
-MASTERZERO
+## MASTERZERO
 Runs all Phoenix logic
 
 Runs all mesh logic
 
-Runs QUIC responder
+~~Runs QUIC responder~~
 
 Runs QUIC client
 
@@ -45,11 +45,11 @@ Decides failover
 
 Decides descalation
 
-SECONDARY
+## SECONDARY
 Runs all mesh logic
 
-Runs QUIC client
-
+~~Runs QUIC client
+~~
 Runs heartbeat
 
 Runs supervisor
@@ -58,11 +58,11 @@ Reacts to failover
 
 Never decides failover
 
-Never runs descalate
+~~Never~~ runs descalate
 
-Never runs QUIC responder
+~~Never~~ runs QUIC responder
 
-OFFSITE
+## OFFSITE
 Runs heartbeat
 
 Runs supervisor
@@ -156,9 +156,9 @@ Writes:
 /opt/semperfix/logs/phoenix-descalate.log
 
 MASTERZERO: captures cluster snapshot
-SECONDARY/OFFSITE: disabled
+~~SECONDARY~~/OFFSITE: disabled
 
-Runs on: MASTERZERO only
+~~Runs on: MASTERZERO only~~
 
 ⭐ Mesh Modules (WSL Only)
 1. wsl-mesh-handshake.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix QUIC Client Timer
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=30s
+Unit=semperfix-quic-client.service
+
+[Install]
+WantedBy=timers.target

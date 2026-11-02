@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
+
+# =====================================================================
+# Phoenix Automation Suite — permissions normalizer
+# Version: Phoenix v2.1
+# Component: permissions-normalizer
+# Role: Monitor / Controller
+# Refactor: 2026-10-30
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -e
+
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 echo "=== SemperFix Permissions Normalizer Script ==="
 
@@ -47,6 +63,8 @@ SFX_DIRS=(
     "/opt/semperfix/dashboard/templates"
     "/var/lib/semperfix"
     "/var/lib/semperfix/state"
+    "/var/lib/semperfix/state/secondary"
+    "/var/lib/semperfix/state/transfer"
 )
 
 for DIR in "${SFX_DIRS[@]}"; do

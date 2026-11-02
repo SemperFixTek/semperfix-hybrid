@@ -1,0 +1,15 @@
+[Unit]
+Description=SemperFix Mesh Activation Coordinator
+After=semperfix-supervisor.service semperfix-network-normalizer.service
+
+[Service]
+UMask=002
+Type=oneshot
+User=root
+Group=semperfix
+ExecStart=/opt/semperfix/scripts/wsl-mesh-activate.sh
+StandardOutput=append:/opt/semperfix/logs/activate.log
+StandardError=append:/opt/semperfix/logs/activate.log
+
+[Install]
+WantedBy=multi-user.target

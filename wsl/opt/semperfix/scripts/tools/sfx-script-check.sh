@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
+
+# =====================================================================
+# Phoenix Automation Suite — sfx script check
+# Version: Phoenix v2.1
+# Component: sfx-script-check
+# Role: UNKNOWN (fix manually if needed)
+# Refactor: 2026-10-25
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
+
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 SFX_DIR="/opt/semperfix/scripts"
 

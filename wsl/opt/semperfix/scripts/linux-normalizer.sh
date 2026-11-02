@@ -57,14 +57,14 @@ log "Mirrored networking detected: ${IS_MIRRORED}"
 if [[ "${IS_WSL}" == "true" && "${IS_MIRRORED}" == "true" ]]; then
 
     CURRENT_IP=$(hostname -I | awk '{print $1}')
-    DEFAULT_ROUTE=$(ip route show default | head -1 || true)
+    DEFAULT_ROUTE=$(ip route show default || true)
 
     log "Current IP: ${CURRENT_IP}"
     log "Current route: ${DEFAULT_ROUTE}"
 
     echo "${CURRENT_IP}" > "${STATE_DIR}/wsl-ip.txt"
 
-    log "Windows-owned networking detected."
+    log "Mirrored networking detected."
     log "Skipping IP enforcement."
     log "Skipping route enforcement."
     log "Skipping interface modification."

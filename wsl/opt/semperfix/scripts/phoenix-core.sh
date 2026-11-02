@@ -49,6 +49,8 @@ phoenix_log_file() {
     fi
 }
 
+# TODO: change location of PHOENIX_DEBUG to JSON file, and retire CONF file
+
 phoenix_debug() {
     local message="$1"
     if [[ "${PHOENIX_DEBUG:-0}" == "1" ]]; then
@@ -57,17 +59,17 @@ phoenix_debug() {
 }
 
 # ---------- Optional: Validate phoenix.conf variables ----------
-phoenix_validate_conf() {
-    local required_vars=(
-        PHOENIX_DEBUG
-    )
+#phoenix_validate_conf() {
+#    local required_vars=(
+#       PHOENIX_DEBUG
+#    )
 
-    for var in "${required_vars[@]}"; do
-        if [[ -z "${!var:-}" ]]; then
-            phoenix_error "Missing required variable in phoenix.conf: $var"
-        fi
-    done
-}
+#    for var in "${required_vars[@]}"; do
+#        if [[ -z "${!var:-}" ]]; then
+#            phoenix_error "Missing required variable in phoenix.conf: $var"
+#       fi
+#    done
+#}
 
 # ---------- Load Phoenix Configuration ----------
 phoenix_load_config() {
@@ -76,7 +78,7 @@ phoenix_load_config() {
     if [[ -f "$CONFIG_CONF" ]]; then
         # shellcheck disable=SC1090
         source "$CONFIG_CONF"
-        phoenix_validate_conf
+#        phoenix_validate_conf
     else
         phoenix_error "Missing phoenix.conf at $CONFIG_CONF"
     fi
@@ -124,6 +126,7 @@ phoenix_load_config() {
         PEER_PORT=$(jq -r '.syncthing.peer_port // empty' "$CONFIG_JSON")
 
         PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // empty' "$CONFIG_JSON")
+        PHOENIX_DEBUG=$(jq -r '.phoenix.debug // empty' "$CONFIG_JSON")
 
     else
         phoenix_error "Missing phoenix.json at $CONFIG_JSON"
@@ -148,6 +151,7 @@ phoenix_load_config() {
     [[ -z "$PEER_PORT" ]] && phoenix_error "Missing syncthing.peer_port in phoenix.json"
 
     [[ -z "$PHOENIX_QUIC_PORT" ]] && phoenix_error "Missing phoenix.quic_port in phoenix.json"
+    [[ -z "$PHOENIX_DEBUG" ]] && phoenix_error "Missing phoenix.debug in phoenix.json"
 
     # ---------- Ensure directories exist + writable ----------
     mkdir -p "$STATE_DIR" "$LOG_DIR"

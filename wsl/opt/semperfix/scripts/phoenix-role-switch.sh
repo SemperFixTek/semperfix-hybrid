@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # =====================================================================
 # Phoenix Automation Suite — Role Switch
 # Version: Phoenix v2.1
@@ -16,11 +17,13 @@ export LANG=C.UTF-8
 
 ROLE_FILE="/opt/semperfix/config/phoenix.json"
 STATE_DIR="/var/lib/semperfix/state"
+TRANS_DIR="$STATE_DIR/secondary"
 LOG_DIR="/opt/semperfix/logs"
 
 # Ensure required directories exist
 mkdir -p "$(dirname "$ROLE_FILE")"
 mkdir -p "$STATE_DIR"
+mkdir -p "$TRANS_DIR"
 mkdir -p "$LOG_DIR"
 
 
@@ -59,40 +62,42 @@ mv "${ROLE_FILE}.tmp" "${ROLE_FILE}"
 # 2. Telemetry Vacuum — remove stale JSON
 # ------------------------------------------------------------
 vacuum_telemetry() {
+    
     log "Vacuuming stale telemetry for role: $NEW_ROLE"
 
-    rm -f "${STATE_DIR}/phoenix-supervisor.json"
-    rm -f "${STATE_DIR}/phoenix-failover.json"
-    rm -f "${STATE_DIR}/mesh-listener.json"
-    rm -f "${STATE_DIR}/quic-client-status.json"
-    rm -f "${STATE_DIR}/quic-responder-status.json"
-    rm -f "${STATE_DIR}/offsite-heartbeat.json"
-    rm -f "${STATE_DIR}/mesh-handshake.json"
-    rm -f "${STATE_DIR}/windows-heartbeat.json"
+    rm -f "${TRANS_DIR}/phoenix-supervisor.json"
+    rm -f "${TRANS_DIR}/phoenix-failover.json"
+    rm -f "${TRANS_DIR}/mesh-listener.json"
+    rm -f "${TRANS_DIR}/quic-client-status.json"
+    rm -f "${TRANS_DIR}/quic-responder-status.json"
+    rm -f "${TRANS_DIR}/offsite-heartbeat.json"
+    rm -f "${TRANS_DIR}/mesh-handshake.json"
+    rm -f "${TRANS_DIR}/windows-heartbeat.json"
 
     log "Telemetry vacuum complete"
 }
 
-vacuum_telemetry
+ vacuum_telemetry
 
 # ------------------------------------------------------------
 # 3. Unit control helpers
 # ------------------------------------------------------------
 stop_units() {
     for unit in "$@"; do
-        log "Stopping: $unit"
-        systemctl stop "$unit" 2>/dev/null || true
-        log "Disabling: $unit"
-        systemctl disable "$unit" 2>/dev/null || true
+        log "Disabling/stopping: $unit"
+        systemctl disable --now "$unit" 2>/dev/null || true
+        sleep .8
+    
     done
 }
 
 start_units() {
+        sleep 5
     for unit in "$@"; do
-        log "Enabling: $unit"
-        systemctl enable "$unit" 2>/dev/null || true
-        log "Starting: $unit"
-        systemctl restart "$unit" 2>/dev/null || true
+        log "Enabling/starting: $unit"
+        systemctl enable --now "$unit" 2>/dev/null || true
+        sleep .8
+   
     done
 }
 
@@ -105,147 +110,133 @@ case "$NEW_ROLE" in
         stop_units \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-promote.service \
-            semperfix-phoenix-recovery.service \
             semperfix-phoenix-recovery.timer \
             semperfix-state-export-windows.timer \
-            semperfix-state-export-windows.service \
-            semperfix-phoenix-descalate.timer \
-            semperfix-phoenix-descalate.service \
+            semperfix-phoenix-descalate.timer 
 
         start_units \
-            semperfix-network-normalizer.service \
-            semperfix-inotify.service \
-            semperfix-mesh-listener.service \
-            semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
+            semperfix-network-normalizer.service \
+            semperfix-inotify-monitor.service \
+            semperfix-mesh-listener.service \
+            semperfix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer
+            semperfix-mirror-secondary.timer \
+            semperfix-phoenix-status-write.timer
         ;;
 
     MASTERZERO-DEGRADED)
         stop_units \
+            semperfix-phoenix-failover.timer \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-promote.service \
-            semperfix-phoenix-recovery.service \
             semperfix-phoenix-recovery.timer \
             semperfix-state-export-windows.timer \
-            semperfix-state-export-windows.service \
-            semperfix-phoenix-failover.timer \
-            semperfix-phoenix-failover.service \
+            
 
         start_units \
-            semperfix-network-normalizer.service \
-            semperfix-inotify.service \
-            semperfix-mesh-listener.service \
-            semperfix-phoenix-recovery.timer \
-            semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-descalate.timer \
+            semperfix-network-normalizer.service \
+            semperfix-inotify-monitor.service \
+            semperfix-mesh-listener.service \
+            semperfix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer
+            semperfix-mirror-secondary.timer \
+            semperfix-phoenix-status-write.timer
         ;;
 
     MASTERZERO-RECOVER)
         stop_units \
+            semperfix-phoenix-failover.timer \
+            semperfix-phoenix-descalate.timer \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-promote.service \
             semperfix-state-export-windows.timer \
-            semperfix-state-export-windows.service \
-            semperfix-phoenix-failover.timer \
-            semperfix-phoenix-failover.service \
+            
 
         start_units \
+            semperfix-phoenix-recovery.timer \
             semperfix-network-normalizer.service \
-            semperfix-inotify.service \
+            semperfix-inotify-monitor.service \
             semperfix-mesh-listener.service \
-            semperfix-phoenix-supervisor.timer \
-            semperfix-phoenix-descalate.timer \
+            semperfix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer
+            semperfix-mirror-secondary.timer \
+            semperfix-phoenix-status-write.timer
         ;;
 
     SECONDARY-ACTIVE)
         stop_units \
+            semperfix-phoenix-failover.timer \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-promote.service \
-            semperfix-phoenix-recovery.service \
             semperfix-phoenix-recovery.timer \
-            semperfix-state-export-windows.timer \
-            semperfix-state-export-windows.service \
-            semperfix-phoenix-failover.timer \
-            semperfix-phoenix-failover.service \
+            semperfix-mirror-secondary.timer 
 
         start_units \
-            semperfix-network-normalizer.service \
-            semperfix-inotify.service \
-            semperfix-mesh-listener.service \
-            semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-descalate.timer \
+            semperfix-network-normalizer.service \
+            semperfix-inotify-monitor.service \
+            semperfix-mesh-listener.service \
+            semperfix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer
+            semperfix-state-export-windows.timer \
+            semperfix-phoenix-status-write.timer
         ;;
 
     SECONDARY-PASSIVE)
         stop_units \
-            semperfix-phoenix-supervisor.service \
-            semperfix-phoenix-supervisor.timer \
-            semperfix-phoenix-failover.service \
             semperfix-phoenix-failover.timer \
-            semperfix-phoenix-recovery.service \
             semperfix-phoenix-recovery.timer \
-            semperfix-phoenix-descalate.service \
             semperfix-phoenix-descalate.timer \
-            semperfix-quic-client.service \
+            semperfix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-mesh-listener.service \
-            semperfix-mirror-secondary.timer \
-            semperfix-mirror-secondary.service
+            semperfix-mirror-secondary.timer 
 
         start_units \
-            semperfix-network-normalizer.service \
-            semperfix-inotify.service \
-            semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
+            semperfix-network-normalizer.service \
+            semperfix-inotify-monitor.service \
+            semperfix-quic-responder.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
-            semperfix-state-export-windows.timer
+            semperfix-state-export-windows.timer \
+            semperfix-phoenix-status-write.timer
         ;;
 
     OFFSITE)
         stop_units \
-            semperfix-quic-responder.service \
-            semperfix-quic-client.timer \
-            semperfix-phoenix-supervisor.timer \
             semperfix-phoenix-failover.timer \
-            semperfix-phoenix-recovery.service \
             semperfix-phoenix-recovery.timer \
+            semperfix-phoenix-recovery.service \
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-promote.timer \
+            semperfix-quic-responder.service \
+            semperfix-quic-client.timer \
+            semperfix-supervisor.timer \
             semperfix-mesh-listener.service \
             semperfix-mirror-secondary.service
 
         start_units \
             semperfix-network-normalizer.service \
-            semperfix-inotify.service \
+            semperfix-inotify-monitor.service \
             semperfix-phoenix-heartbeat.timer \
             semperfix-mesh-status.timer \
             semperfix-state-export-windows.timer
         ;;
 
 esac
-log "Reloading systemd daemon"
-systemctl daemon-reload
+#log "Reloading systemd daemon"
+#systemctl daemon-reload
 
 log "Phoenix role switch complete: $NEW_ROLE"
 exit 0

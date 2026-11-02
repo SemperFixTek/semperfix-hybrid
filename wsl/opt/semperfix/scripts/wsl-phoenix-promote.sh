@@ -8,6 +8,8 @@
 # Maintainer: SemperFix Automation (Bruce)
 # =====================================================================
 
+# TODO - add "promote: true/false" tp JSON output for supervisor's consumption
+
 set -euo pipefail
 
 umask 002
@@ -37,7 +39,7 @@ get_failover_reason() {
 }
 
 is_quic_unreachable() {
-    nc -zvu "$PEER_IP" "$PEER_PORT" 2>/dev/null && echo "false" || echo "true"
+    nc -zvu "$PEER_IP" "$PEER_PORT" 2>/dev/null && echo "true" || echo "false"
 }
 
 is_mesh_degraded_local() {
@@ -104,6 +106,7 @@ main() {
 
     # Require 2 consecutive strikes
     if (( strikes >= 2 )); then
+        log "Promotion triggering"
         trigger_promotion
     else
         log "Promotion not yet triggered (strikes<2)"

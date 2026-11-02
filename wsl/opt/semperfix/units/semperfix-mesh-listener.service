@@ -1,0 +1,18 @@
+[Unit]
+Description=Phoenix v2 Mesh Listener / QUIC & Syncthing State Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+UMask=002
+Type=simple
+User=root
+Group=semperfix
+ExecStart=/opt/semperfix/scripts/wsl-mesh-listener.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/semperfix/logs/listener.log
+StandardError=append:/opt/semperfix/logs/listener.log
+
+[Install]
+WantedBy=multi-user.target

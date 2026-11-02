@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
+
+# =====================================================================
+# Phoenix Automation Suite — systemd cleanup
+# Version: Phoenix v2.1
+# Component: systemd-cleanup
+# Role: Maintenace
+# Refactor: 2026-10-25
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 log() {
     echo "[SYSTEMD-CLEANUP] $*"
@@ -30,6 +42,7 @@ declare -A PHOENIX_UNITS=(
     ["semperfix-phoenix-failover.timer"]=1
     ["semperfix-phoenix-descalate.timer"]=1
     ["semperfix-phoenix-promote.timer"]=1
+    ["semperfix-phoenix-recovery.timer"]=1
     ["semperfix-mesh-listener.service"]=1
     ["semperfix-state-export-windows.timer"]=1
 )

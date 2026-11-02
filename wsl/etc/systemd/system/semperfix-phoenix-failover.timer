@@ -2,8 +2,8 @@
 Description=Phoenix Failover Evaluator Timer
 
 [Timer]
-OnBootSec=20s
-OnUnitActiveSec=30s
+OnBootSec=45s
+OnUnitActiveSec=45s
 Unit=semperfix-phoenix-failover.service
 
 [Install]

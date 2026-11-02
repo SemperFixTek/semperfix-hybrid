@@ -29,7 +29,8 @@ foreach ($p in $profiles) {
 $rules = @(
     @{ Name="Syncthing-QUIC-UDP-22000"; Port=22000; Protocol="UDP" },
     @{ Name="Syncthing-TCP-22000";      Port=22000; Protocol="TCP" },
-    @{ Name="Phoenix-QUIC-UDP-22001";   Port=22001; Protocol="UDP" }
+    @{ Name="Phoenix-QUIC-UDP-22001";   Port=22001; Protocol="UDP" },
+    @{ Name="Phoenix-Dashboard";        Port=8383;  Protocol="TCP" }
 )
 
 foreach ($r in $rules) {

@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
+
+# =====================================================================
+# Phoenix Automation Suite — mesh artifact validator
+# Version: Phoenix v2.1
+# Component: mesh-artifact-validator
+# Role: Controller / Responder
+# Refactor: 2026-10-30
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail
 
-#STATE_DIR="/var/lib/semperfix/state"
-#LOG_DIR="/opt/semperfix/logs"
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init

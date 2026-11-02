@@ -1,0 +1,16 @@
+[Unit]
+Description=SemperFix Phoenix v2 Unified Supervisor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+UMask=002
+Type=oneshot
+User=root
+Group=semperfix
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-supervisor.sh
+StandardOutput=append:/opt/semperfix/logs/supervisor.log
+StandardError=append:/opt/semperfix/logs/supervisor.log
+
+[Install]
+WantedBy=multi-user.target

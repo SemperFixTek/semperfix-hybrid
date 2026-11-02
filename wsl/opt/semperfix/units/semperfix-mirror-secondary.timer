@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic mirror of SECONDARY state JSON into WSL
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=10s
+Unit=semperfix-mirror-secondary.service
+
+[Install]
+WantedBy=timers.target

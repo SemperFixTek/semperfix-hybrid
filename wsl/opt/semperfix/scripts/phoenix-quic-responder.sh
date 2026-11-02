@@ -43,8 +43,16 @@ HANDLER="/opt/semperfix/scripts/quic-handler.sh"
 
 cat > "$HANDLER" <<EOF
 #!/usr/bin/env bash
+
 # Phoenix v2.1 — QUIC Handler
+
 set -euo pipefail
+
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 LOGFILE="${LOG_DIR}/quic-handler.log"
 PEER="\$SOCAT_PEERADDR"

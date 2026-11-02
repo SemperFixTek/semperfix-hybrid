@@ -1,6 +1,21 @@
-#!/bin/bash 
-# /opt/semperfix/scripts/permissions-reset-v1.sh 
+#!/usr/bin/env bash 
+
+# =====================================================================
+# Phoenix Automation Suite — permissions reset v1
+# Version: Phoenix v2.1
+# Component: permissions-reset-v1
+# Role: Controller / Responder
+# Refactor: 2026-10-25
+# Maintainer: SemperFix Automation (Bruce)
+# =====================================================================
+
 set -euo pipefail  
+
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+dos2unix "$0" 2>/dev/null || true
 
 echo "[$(date -Iseconds)] Starting permissions normalization..."  
 

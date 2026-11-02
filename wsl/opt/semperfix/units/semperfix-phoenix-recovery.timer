@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix v2.1 MASTERZERO Recovery Timer
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=120s
+Unit=semperfix-phoenix-recovery.service
+
+[Install]
+WantedBy=timers.target

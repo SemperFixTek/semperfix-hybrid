@@ -28,6 +28,8 @@ JSON_OUT="${STATE_DIR}/mesh-handshake.json"
 PHOENIX_LOGFILE="$LOGFILE"
 log() { phoenix_log_file "INFO" "$*"; }
 
+#TODO- netcat is falsly claiming success when the IP is unreachable 
+
 check_quic() {
     log "Checking QUIC reachability to ${PEER_IP}:${PEER_PORT}"
     if nc -zvu "${PEER_IP}" "${PEER_PORT}" &>/dev/null; then

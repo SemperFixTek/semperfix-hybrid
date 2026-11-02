@@ -40,15 +40,22 @@ log "Cluster-view roles: MASTERZERO=${master_role} SECONDARY=${secondary_role}"
 # ---------------------------------------------------------
 # MASTERZERO telemetry (always full)
 # ---------------------------------------------------------
-mz = {
-    "role": master_role,
-    "heartbeat": load_json "${STATE_DIR}/phoenix-heartbeat.json",
-    "supervisor": load_json "${STATE_DIR}/phoenix-supervisor.json",
-    "mesh": load_json "${STATE_DIR}/mesh-status.json",
-    "quic": load_json "${STATE_DIR}/quic-client-status.json",
-    "failover": load_json "${STATE_DIR}/phoenix-failover.json",
-    "windows": load_json "${STATE_DIR}/windows-heartbeat.json"
-}
+#mz = {
+#    "role": $master_role,
+#    "heartbeat": load_json "${STATE_DIR}/phoenix-heartbeat.json",
+#    "supervisor": load_json "${STATE_DIR}/phoenix-supervisor.json",
+#    "mesh": load_json "${STATE_DIR}/mesh-status.json",
+#    "quic": load_json "${STATE_DIR}/quic-client-status.json",
+#    "failover": load_json "${STATE_DIR}/phoenix-failover.json",
+#    "windows": load_json "${STATE_DIR}/windows-heartbeat.json" }
+#}
+mz_role=$master_role
+mz_heartbeat=$(load_json "${STATE_DIR}/phoenix-heartbeat.json")
+mz_supervisor=$(load_json "${STATE_DIR}/phoenix-supervisor.json")
+mz_mesh=$(load_json "${STATE_DIR}/mesh-status.json")
+mz_quic=$(load_json "${STATE_DIR}/quic-client-status.json")
+mz_failover=$(load_json "${STATE_DIR}/phoenix-failover.json")
+mz_windows=$(load_json "${STATE_DIR}/windows-heartbeat.json")
 
 # ---------------------------------------------------------
 # SECONDARY telemetry (role-aware)

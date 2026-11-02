@@ -10,7 +10,10 @@
 
 set -euo pipefail
 
-# Safety: prevent Windows CRLF issues
+umask 002
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
 dos2unix "$0" 2>/dev/null || true
 
 # =====================================================================

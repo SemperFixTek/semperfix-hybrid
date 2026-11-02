@@ -1,0 +1,14 @@
+[Unit]
+Description=Phoenix v2.1 Promotion Check
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/wsl-phoenix-promote.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/promote.log
+StandardError=append:/opt/semperfix/logs/promote.log
+
+[Install]
+WantedBy=multi-user.target

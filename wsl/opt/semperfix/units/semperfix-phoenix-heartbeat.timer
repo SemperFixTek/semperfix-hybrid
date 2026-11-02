@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix v2.1 Passive Heartbeat Timer
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=10s
+Unit=semperfix-phoenix-heartbeat.service
+
+[Install]
+WantedBy=timers.target

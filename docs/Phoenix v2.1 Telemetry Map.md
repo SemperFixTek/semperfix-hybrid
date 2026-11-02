@@ -232,13 +232,13 @@ Code
                                ▼
                        phoenix-status.json
 7. Role‑Aware Execution Matrix
-Role	heartbeat	supervisor	mesh-status	handshake	verify	activate	quic-client	quic-responder
-MASTERZERO-ACTIVE	✔	✔	✔	✔	✔	✔	✔	✖
-MASTERZERO-DEGRADED	✔	✔	✔	✔	✔	✔	✔	✖
-MASTERZERO-RECOVER	✔	✔	✔	✔	✔	✔	✔	✖
-SECONDARY-ACTIVE	✔	✔	✔	✔	✔	✔	✔	✖
-SECONDARY-PASSIVE	✔	✖	✔	✔	✖	✖	✖	✔
-OFFSITE	✔	✖	✔	✔	✖	✖	✖	✖
+        Role	    heartbeat	supervisor  mesh-status	 handshake  verify  activate  quic-client   quic-responder
+MASTERZERO-ACTIVE	✔	    ✔	        ✔	    ✔	     ✔	      ✔	         ✔	        ✖
+MASTERZERO-DEGRADED	✔	    ✔		✔	    ✔	     ✔	      ✔	         ✔              ✖              
+MASTERZERO-RECOVER	✔	    ✔	        ✔	    ✔	     ✔	      ✔	         ✔	        ✖
+SECONDARY-ACTIVE	✔	    ✔	        ✔	    ✔	     ✔	      ✔	         ✔	        ✖
+SECONDARY-PASSIVE	✔	    ✖	        ✔	    ✔	     ✖	      ✖	         ✖	        ✔
+OFFSITE	                ✔	    ✖	        ✔	    ✔	     ✖	      ✖	         ✖	        ✖
 
 
 8. Failure Propagation Model

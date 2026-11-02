@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # =====================================================================
 # Phoenix Automation Suite — Quic Client
 # Version: Phoenix v2.1

@@ -1,0 +1,10 @@
+[Unit]
+Description=Phoenix v2.1 Promotion Check Timer
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=120s
+Unit=semperfix-phoenix-promote.service
+
+[Install]
+WantedBy=timers.target
