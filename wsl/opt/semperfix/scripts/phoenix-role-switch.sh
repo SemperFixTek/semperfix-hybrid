@@ -7,6 +7,7 @@
 # Role: Controller / Responder / Observer (role-aware)
 # Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
 # Maintainer: SemperFix Automation (Bruce)
+# Audit 2026-11-04
 # =====================================================================
 
 set -euo pipefail
@@ -19,16 +20,29 @@ ROLE_FILE="/opt/semperfix/config/phoenix.json"
 STATE_DIR="/var/lib/semperfix/state"
 TRANS_DIR="$STATE_DIR/secondary"
 LOG_DIR="/opt/semperfix/logs"
+LOCKFILE="/run/lock/phoenix-role-switch.lock"
 
 # Ensure required directories exist
 mkdir -p "$(dirname "$ROLE_FILE")"
 mkdir -p "$STATE_DIR"
 mkdir -p "$TRANS_DIR"
 mkdir -p "$LOG_DIR"
+mkdir -p "$(dirname "$LOCKFILE")"
 
+# ------------------------------------------------------------
+# Locking
+# ------------------------------------------------------------
 
+exec 200>"$LOCKFILE"
+
+if ! flock -n 200; then
+    echo "[WARN] Another role switch is already running"
+    exit 1
+fi
+
+# Start of the script configuration and logging
 log() {
-    echo "[ROLE-SWITCH] $*" | tee -a "${LOG_DIR}/role-switch.log"
+    echo "[INFO] $*" | tee -a "${LOG_DIR}/role-switch.log"
 }
 
 usage() {
@@ -50,6 +64,7 @@ case "$NEW_ROLE" in
 esac
 
 log "Switching Phoenix node role to: $NEW_ROLE"
+log "Previous role: $(jq -r '.node.role' "$ROLE_FILE")"
 
 # ------------------------------------------------------------
 # 1. Update phoenix.json
@@ -62,48 +77,128 @@ mv "${ROLE_FILE}.tmp" "${ROLE_FILE}"
 # 2. Telemetry Vacuum — remove stale JSON
 # ------------------------------------------------------------
 vacuum_telemetry() {
-    
+
     log "Vacuuming stale telemetry for role: $NEW_ROLE"
 
-    rm -f "${TRANS_DIR}/phoenix-supervisor.json"
-    rm -f "${TRANS_DIR}/phoenix-failover.json"
-    rm -f "${TRANS_DIR}/mesh-listener.json"
-    rm -f "${TRANS_DIR}/quic-client-status.json"
-    rm -f "${TRANS_DIR}/quic-responder-status.json"
-    rm -f "${TRANS_DIR}/offsite-heartbeat.json"
-    rm -f "${TRANS_DIR}/mesh-handshake.json"
-    rm -f "${TRANS_DIR}/windows-heartbeat.json"
+    local stale_files=(
+        phoenix-supervisor.json
+        phoenix-failover.json
+        quic-client-status.json
+        quic-responder-status.json
+        offsite-heartbeat.json
+        mesh-handshake.json
+        windows-heartbeat.json
+    )
+
+    local file
+
+    for file in "${stale_files[@]}"; do
+        rm -f "${TRANS_DIR}/${file}"
+    done
 
     log "Telemetry vacuum complete"
 }
-
  vacuum_telemetry
 
 # ------------------------------------------------------------
 # 3. Unit control helpers
 # ------------------------------------------------------------
-stop_units() {
-    for unit in "$@"; do
-        log "Disabling/stopping: $unit"
-        systemctl disable --now "$unit" 2>/dev/null || true
-        sleep .8
-    
+# Helper function to pause until a systemd unit hits the expected state
+wait_for_unit_state() {
+
+    local expected="$1"
+    local unit="$2"
+
+    local timeout=20
+    local i
+    local state
+
+    for ((i=0; i<timeout*2; i++)); do
+
+        state=$(
+            systemctl show \
+                --property=ActiveState \
+                --value "$unit" 2>/dev/null
+        )
+
+        if [[ "$state" == "$expected" ]]; then
+            return 0
+        fi
+
+        if [[ "$state" == "failed" ]]; then
+            log "CRITICAL: Unit entered failed state: $unit"
+            exit 1
+        fi
+
+        sleep 0.5
     done
+
+    log "CRITICAL: Timeout waiting for $unit => $expected"
+    exit 1
+}
+
+# Helper function to validate unit existence
+validate_unit_exists() {
+
+    local unit="$1"
+
+    if ! systemctl cat "$unit" >/dev/null 2>&1; then
+        log "CRITICAL: Unit does not exist: $unit"
+        exit 1
+    fi
+}
+
+stop_units() {
+
+    local unit
+
+    for unit in "$@"; do
+        validate_unit_exists "$unit"
+        log "Disabling/stopping: $unit"
+        systemctl disable --now "$unit" >/dev/null 2>&1 || true
+        wait_for_unit_state "inactive" "$unit"
+    done
+
+    sleep 1
 }
 
 start_units() {
-        sleep 5
+
+    local unit
+
     for unit in "$@"; do
+
+        validate_unit_exists "$unit"
         log "Enabling/starting: $unit"
-        systemctl enable --now "$unit" 2>/dev/null || true
-        sleep .8
-   
+        systemctl enable --now "$unit" >/dev/null 2>&1 || true
+        wait_for_unit_state "active" "$unit"
     done
 }
+
 
 # ------------------------------------------------------------
 # 4. Role-specific unit control
 # ------------------------------------------------------------
+
+# Common unit sets
+
+COMMON_CONTROLLER_UNITS=(
+    semperfix-network-normalizer.service
+    semperfix-inotify-monitor.service
+    semperfix-supervisor.timer
+    semperfix-quic-client.timer
+    semperfix-phoenix-heartbeat.timer
+    semperfix-mesh-status.timer
+    semperfix-phoenix-status-write.timer
+    semperfix-state-mirror.timer
+)
+
+start_common_controller_units() {
+
+    start_units \
+        "${COMMON_CONTROLLER_UNITS[@]}"
+}
+
 case "$NEW_ROLE" in
 
     MASTERZERO-ACTIVE)
@@ -114,17 +209,10 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer \
             semperfix-phoenix-descalate.timer 
 
+        start_common_controller_units
+
         start_units \
-            semperfix-phoenix-failover.timer \
-            semperfix-network-normalizer.service \
-            semperfix-inotify-monitor.service \
-            semperfix-mesh-listener.service \
-            semperfix-supervisor.timer \
-            semperfix-quic-client.timer \
-            semperfix-phoenix-heartbeat.timer \
-            semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer \
-            semperfix-phoenix-status-write.timer
+            semperfix-phoenix-failover.timer
         ;;
 
     MASTERZERO-DEGRADED)
@@ -136,17 +224,10 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer \
             
 
+        start_common_controller_units
+
         start_units \
-            semperfix-phoenix-descalate.timer \
-            semperfix-network-normalizer.service \
-            semperfix-inotify-monitor.service \
-            semperfix-mesh-listener.service \
-            semperfix-supervisor.timer \
-            semperfix-quic-client.timer \
-            semperfix-phoenix-heartbeat.timer \
-            semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer \
-            semperfix-phoenix-status-write.timer
+            semperfix-phoenix-descalate.timer
         ;;
 
     MASTERZERO-RECOVER)
@@ -158,17 +239,10 @@ case "$NEW_ROLE" in
             semperfix-state-export-windows.timer \
             
 
+        start_common_controller_units
+
         start_units \
-            semperfix-phoenix-recovery.timer \
-            semperfix-network-normalizer.service \
-            semperfix-inotify-monitor.service \
-            semperfix-mesh-listener.service \
-            semperfix-supervisor.timer \
-            semperfix-quic-client.timer \
-            semperfix-phoenix-heartbeat.timer \
-            semperfix-mesh-status.timer \
-            semperfix-mirror-secondary.timer \
-            semperfix-phoenix-status-write.timer
+            semperfix-phoenix-recovery.timer
         ;;
 
     SECONDARY-ACTIVE)
@@ -179,17 +253,10 @@ case "$NEW_ROLE" in
             semperfix-phoenix-recovery.timer \
             semperfix-mirror-secondary.timer 
 
+        start_common_controller_units
+
         start_units \
-            semperfix-phoenix-descalate.timer \
-            semperfix-network-normalizer.service \
-            semperfix-inotify-monitor.service \
-            semperfix-mesh-listener.service \
-            semperfix-supervisor.timer \
-            semperfix-quic-client.timer \
-            semperfix-phoenix-heartbeat.timer \
-            semperfix-mesh-status.timer \
-            semperfix-state-export-windows.timer \
-            semperfix-phoenix-status-write.timer
+            semperfix-phoenix-descalate.timer
         ;;
 
     SECONDARY-PASSIVE)
@@ -199,7 +266,6 @@ case "$NEW_ROLE" in
             semperfix-phoenix-descalate.timer \
             semperfix-supervisor.timer \
             semperfix-quic-client.timer \
-            semperfix-mesh-listener.service \
             semperfix-mirror-secondary.timer 
 
         start_units \
@@ -223,7 +289,6 @@ case "$NEW_ROLE" in
             semperfix-quic-responder.service \
             semperfix-quic-client.timer \
             semperfix-supervisor.timer \
-            semperfix-mesh-listener.service \
             semperfix-mirror-secondary.service
 
         start_units \
@@ -235,8 +300,6 @@ case "$NEW_ROLE" in
         ;;
 
 esac
-#log "Reloading systemd daemon"
-#systemctl daemon-reload
 
 log "Phoenix role switch complete: $NEW_ROLE"
 exit 0

@@ -55,18 +55,19 @@ compute_mesh_ok() {
 
 get_failover() {
 
-        if [[ -f "$FAIL_JSON" ]]; then
-                local promoted
+        if [[ -f "$SUP_JSON" ]]; then
+                local failover
 
-                promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
+                failover=$(jq -r '.health.failover_status // "not_needed"' "$SUP_JSON" 2>/dev/null)
   
         fi
 
-        if [[ promoted == "true" ]]; then
-            echo "true"
-        else
-            echo "false"
-        fi
+#        if [[ failover == "needed" ]]; then
+#           echo "true"
+#        else
+#            echo "false"
+#        fi
+    echo "$failover"
 
 }
 
@@ -74,15 +75,16 @@ detect_role() {
     local base_role="$NODE_ROLE"
     PROMO_NEEDED="empty"
     
-    # Promotion detection
+    # failover detection
     
     
-    if [[ -f "$FAIL_JSON" ]]; then
-        local promoted
+#   if [[ -f "$FAIL_JSON" ]]; then
+    if [[ -f "$SUP_JSON" ]]; then
+        local failover=$(get_failover)
 
-        promoted=$(jq -r '.health.failover_needed // "false"' "$FAIL_JSON" 2>/dev/null)
+#        failover=$(jq -r '.health.failover_status // "not_needed"' "$FAIL_JSON" 2>/dev/null)
 
-        if [[ "$promoted" == "true" ]]; then
+        if [[ "$failover" == "needed" ]]; then
             base_role="SECONDARY-ACTIVE"
         fi
     fi
@@ -184,8 +186,9 @@ write_status() {
             ;;
     esac
     
-    PROMOTION_STATE=$(get_failover)
-    json_set "$STATUS_FILE" "promote" "$PROMOTION_STATE"
+    # write trigger for phoenix-promote
+    FAILOVER_STATE=$(get_failover)
+    json_set "$STATUS_FILE" "failover" "$FAILOVER_STATE"
 
     json_finalize "$STATUS_FILE"
     /opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"

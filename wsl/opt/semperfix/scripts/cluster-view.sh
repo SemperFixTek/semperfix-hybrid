@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # =====================================================================
 # Phoenix Automation Suite — Cluster View
 # Version: Phoenix v2.1
@@ -21,7 +22,7 @@ phoenix_init
 
 CLUSTER_JSON="${STATE_DIR}/cluster-view.json"
 CLUSTER_LOG="${LOG_DIR}/cluster-view.log"
-
+WINDOWS_DIR="/mnt/c/semperfix/state"
 PHOENIX_LOGFILE="$CLUSTER_LOG"
 log() { phoenix_log_file "INFO" "$*"; }
 
@@ -33,7 +34,8 @@ load_json() {
 # Load roles
 # ---------------------------------------------------------
 master_role=$(jq -r '.node.role // "UNKNOWN"' "${STATE_DIR}/phoenix-status.json" 2>/dev/null)
-secondary_role=$(jq -r '.node.role // "UNKNOWN"' "${STATE_DIR}/secondary/phoenix-status.json" 2>/dev/null)
+#secondary_role=$(jq -r '.node.role // "UNKNOWN"' "${STATE_DIR}/secondary/phoenix-status.json" 2>/dev/null)
+secondary_role=$(jq -r '.node_role // "UNKNOWN"' "${STATE_DIR}/secondary/mesh-status.json" 2>/dev/null)
 
 log "Cluster-view roles: MASTERZERO=${master_role} SECONDARY=${secondary_role}"
 
@@ -55,7 +57,7 @@ mz_supervisor=$(load_json "${STATE_DIR}/phoenix-supervisor.json")
 mz_mesh=$(load_json "${STATE_DIR}/mesh-status.json")
 mz_quic=$(load_json "${STATE_DIR}/quic-client-status.json")
 mz_failover=$(load_json "${STATE_DIR}/phoenix-failover.json")
-mz_windows=$(load_json "${STATE_DIR}/windows-heartbeat.json")
+mz_windows=$(load_json "${WINDOWS_DIR}/windows-heartbeat.json")
 
 # ---------------------------------------------------------
 # SECONDARY telemetry (role-aware)

@@ -14,13 +14,16 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 RECOVER_STATE_JSON="${STATE_DIR}/phoenix-recover.json"
 RECOVERY_JSON="${STATE_DIR}/phoenix-supervisor.json"
 LOGFILE="${LOG_DIR}/phoenix-recover.log"
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$LOGFILE"
 
 log() { phoenix_log_file "INFO" "$*"; }
@@ -29,7 +32,13 @@ log() { phoenix_log_file "INFO" "$*"; }
 # Helpers
 # ---------------------------------------------------------
 
-RECOVERY_STATUS=$(jq -r '.recovery_status// false' "${RECOVERY_JSON}")
+RECOVERY_STATUS=$(jq -r '.failover_status// "needed"' "${RECOVERY_JSON}")
+if [[ "$RECOVERY_STATUS" == "not_needed" ]]; then
+    RECOVERY_STATUS="true"
+    else
+    RECOVERY_STATUS="false"
+
+fi
 
 is_quic_unreachable() {
     nc -zvu "$PEER_IP" "$PEER_PORT" 2>/dev/null && echo "false" || echo "true"

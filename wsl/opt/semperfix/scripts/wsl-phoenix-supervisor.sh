@@ -29,6 +29,16 @@ log() { phoenix_log_file "INFO" "$*"; }
 run_handshake()  { /opt/semperfix/scripts/wsl-mesh-handshake.sh; }
 run_verify()     { /opt/semperfix/scripts/wsl-mesh-verify.sh; }
 run_activate()   { /opt/semperfix/scripts/wsl-mesh-activate.sh; }
+get_failover()   {
+    local failover_status="not_needed"
+        failover_status=$(    
+            [[ $verify_status == "pass" && $handshake_status == "pass" && $activate_status == "pass" ]] &&
+            echo "not_needed" ||
+            echo "needed"
+            )
+        
+        echo "$failover_status"
+}
 
 ROLE="$NODE_ROLE"
 log "Phoenix v2.1 Supervisor starting for role: $ROLE"
@@ -37,7 +47,7 @@ main() {
     local handshake_status="not_applicable"
     local verify_status="not_applicable"
     local activate_status="not_applicable"
-    local recovery_status="false"
+    local failover_status="not_applicable"
 
     case "$ROLE" in
 
@@ -51,14 +61,10 @@ main() {
             log "handshake status: $handshake_status"
             log "verify status: $verify_status"
             log "activate status: $activate_status"
-            log "Evaluating recovery potential for MASTERZERO"
+            log "Evaluating failover status based on handshake, verify, and activate results"
             
-            recovery_status=$(    
-                [[ $verify_status == "pass" && $handshake_status == "pass" && $activate_status == "pass" ]] &&
-                echo "true" ||
-                echo "false"
-            )
-            log "recovery_status=$recovery_status"
+            failover_status=$(get_failover)
+            log "failover_status=$failover_status"
             ;;
 
         SECONDARY-ACTIVE)
@@ -103,7 +109,7 @@ main() {
     json_set "$SUP_FILE" "handshake_status" "$handshake_status"
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
-    json_set "$SUP_FILE" "recovery_status" "$recovery_status"
+    json_set "$SUP_FILE" "failover_status" "$failover_status"
 
     # Backward compatibility
     json_set "$SUP_FILE" "handshake" "$handshake_status"

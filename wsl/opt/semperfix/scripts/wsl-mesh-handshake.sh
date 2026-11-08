@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
+
 # =====================================================================
 # Phoenix Automation Suite — Mesh Handshake
 # Version: Phoenix v2.1
 # Component: wsl-mesh-handshake
 # Role: Controller / Responder / Observer (role‑aware)
 # Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
-# Maintainer: SemperFix Automation (Bruce)
+# Maintainer: SemperFix Automation (Bruce)     
+# Audit 2026-11-05
 # =====================================================================
 
 set -euo pipefail
@@ -18,52 +20,93 @@ export LANG=C.UTF-8
 dos2unix "$0" 2>/dev/null || true
 
 # Load Phoenix core + JSON helpers
+
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 LOGFILE="${LOG_DIR}/mesh-handshake.log"
 JSON_OUT="${STATE_DIR}/mesh-handshake.json"
+LOCKFILE="/run/lock/mesh-handshake.lock"
 
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$LOGFILE"
-log() { phoenix_log_file "INFO" "$*"; }
 
-#TODO- netcat is falsly claiming success when the IP is unreachable 
+# ------------------------------------------------------------
+# Locking
+# ------------------------------------------------------------
 
-check_quic() {
-    log "Checking QUIC reachability to ${PEER_IP}:${PEER_PORT}"
-    if nc -zvu "${PEER_IP}" "${PEER_PORT}" &>/dev/null; then
-        log "QUIC reachable"
-        json_set "$JSON_OUT" "quic_status" "reachable"
+exec 200>"$LOCKFILE"
+
+if ! flock -n 200; then
+    echo "[WARN] Another mesh-handshake is already running"
+    exit 1
+fi
+
+log() { phoenix_log_file "INFO" "$*"; } 
+
+check_transport() {
+    log "Checking peer connectivity"
+    log "Peer target: ${PEER_IP}:${PEER_PORT} (device ID: ${PEER_DEVICE_ID})"
+
+    local connected
+
+    connected=$(api_get "system/connections" | jq -r \
+               ".connections.\"${PEER_DEVICE_ID}\".connected // false"
+    )
+
+    if [[ "$connected" == "true" ]]; then
+        json_set "$JSON_OUT" "peer_status" "connected"
+        log "connected"
         return 0
-    else
-        log "QUIC unreachable"
-        json_set "$JSON_OUT" "quic_status" "unreachable"
-        return 1
     fi
+
+    json_set "$JSON_OUT" "peer_status" "disconnected"
+    log "disconnected"
+    return 1
+}
+
+api_get() {
+
+    local endpoint="$1"
+
+    curl -s --connect-timeout 2 --max-time 5 \
+         -H "X-API-Key: ${API_KEY}" "${API_URL}/${endpoint}"
 }
 
 check_syncthing_api() {
     log "Checking Syncthing API at ${API_URL}"
     local status
-    status=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/ping" || echo "error")
+    
+    status=$(api_get "system/ping" || echo "error")
 
     if [[ "$status" == *"pong"* ]]; then
-        log "Syncthing API reachable"
-        json_set "$JSON_OUT" "syncthing_api" "reachable"
+            log "Syncthing API reachable"
+            json_set "$JSON_OUT" "syncthing_api" "reachable"
         return 0
     else
-        log "Syncthing API unreachable"
-        json_set "$JSON_OUT" "syncthing_api" "unreachable"
+            log "Syncthing API unreachable"
+            json_set "$JSON_OUT" "syncthing_api" "unreachable"
         return 1
     fi
 }
 
 dump_peers() {
+
     log "Dumping peer list"
     local peers
-    peers=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/connections")
-    json_set_raw "$JSON_OUT" "peer_dump" "$peers"
+
+    peers=$(api_get "system/connections" || echo "{}")
+
+    if jq -e . >/dev/null <<< "$peers"; then
+        json_set_raw "$JSON_OUT" "peer_dump" "$peers"
+
+    else
+        log "Peer dump was not valid JSON"
+        json_set_raw "$JSON_OUT" "peer_dump" "null"
+    fi
 }
 
 main() {
@@ -90,7 +133,7 @@ main() {
                 syncthing_status="fail"
             fi
 
-            if check_quic; then
+            if check_transport; then
                 quic_status="pass"
             else
                 quic_status="fail"
@@ -115,7 +158,7 @@ main() {
                 syncthing_status="fail"
             fi
 
-            if check_quic; then
+            if check_transport; then
                 quic_status="pass"
             else
                 quic_status="fail"
@@ -140,24 +183,37 @@ main() {
                 syncthing_status="fail"
             fi
 
-             dump_peers
+            dump_peers
 
-            if [[ "$quic_status" == "pass" ]]; then
+            if [[ "$syncthing_status" == "pass" ]]; then
                 handshake_status="pass"
             else
                 handshake_status="fail"
             fi
-           
+        
             json_set "$JSON_OUT" "quic_status" "handled_by_responder"
             
             ;;
 
         OFFSITE)
             log "OFFSITE performing observer-only handshake"
-            check_syncthing_api
+            
+            if check_syncthing_api; then
+                syncthing_status="pass"
+            else
+                syncthing_status="fail"
+            fi
+            
+            dump_peers
+
+            if [[ "$syncthing_status" == "pass" ]]; then
+                handshake_status="pass"
+            else
+                handshake_status="fail"
+            fi
+            
             json_set "$JSON_OUT" "quic_status" "not_applicable"
-            json_set_raw "$JSON_OUT" "peer_dump" "null"
-            handshake_status="pass"
+
             ;;
 
         *)

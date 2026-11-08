@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
+
 # =====================================================================
 # Phoenix Automation Suite — Mesh Verify
 # Version: Phoenix v2.1
 # Component: phoenix-mesh-verify
 # Role: Responder / Observer (role-aware)
-# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Refactor: 2026-11-05 — v2.0 → v2.1 role model upgrade
 # Maintainer: SemperFix Automation (Bruce)
+# Audit 2026-11-05
 # =====================================================================
 
 set -euo pipefail
@@ -18,21 +20,42 @@ export LANG=C.UTF-8
 dos2unix "$0" 2>/dev/null || true
 
 # Load Phoenix core + JSON helpers
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 LOGFILE="${LOG_DIR}/mesh-verify.log"
 JSON_OUT="${STATE_DIR}/mesh-verify.json"
-
+LOCKFILE=/run/lock/mesh-verify.lock
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$LOGFILE"
+
+mkdir -p "$(dirname "$LOCKFILE")"
+
+exec 200>"$LOCKFILE"
+
+flock -n 200 || {
+    log "[WARN] Another mesh-verify is already running"
+    exit 0
+}
+
 log() { phoenix_log_file "INFO" "$*"; }
+
+api_get() {
+
+    local endpoint="$1"
+
+    curl -s --connect-timeout 2 --max-time 5 \
+         -H "X-API-Key: ${API_KEY}" "${API_URL}/${endpoint}"
+}
 
 verify_connections() {
     log "Checking Syncthing connection matrix"
 
     local matrix
-    matrix=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/connections")
+    matrix=$(api_get "system/connections" || echo "{}")
 
     printf "%s\n" "$matrix" >> "$LOGFILE"
 
@@ -54,7 +77,7 @@ verify_device_ids() {
     log "Checking device ID list"
 
     local devices
-    devices=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/system/status")
+    devices=$(api_get "system/status")
 
     printf "%s\n" "$devices" >> "$LOGFILE"
 
@@ -76,19 +99,12 @@ verify_folders() {
     log "Checking folder health"
 
     local folders
-    folders=$(curl -s -H "X-API-Key: ${API_KEY}" "${API_URL}/stats/folder")
+    folders=$(api_get "stats/folder")
 
     printf "%s\n" "$folders" >> "$LOGFILE"
 
     local all_idle
-    all_idle=$(jq -r '
-        if (type == "array") then
-            ([ .[].state ] | all(. == "idle"))
-        else
-            false
-        end
-    ' <<< "$folders" 2>/dev/null || echo "false")
-
+    all_idle=$(jq -r 'type == "object"' <<< "$folders" 2>/dev/null || echo false)
     if [[ "$all_idle" == "true" ]]; then
         log "Folders idle and healthy"
         json_set "$JSON_OUT" "folder_health" "healthy"
@@ -114,18 +130,48 @@ main() {
 
         MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
             log "${NODE_ROLE} performing full mesh verification"
-            verify_connections
-            verify_device_ids
+            local connection_status=fail
+            local device_status=fail
+
+            if verify_connections; then
+                connection_status=pass
+            fi
+
+            if verify_device_ids; then
+                device_status=pass
+            fi
+
             verify_folders
-            verify_status="pass"
+
+            if [[ "$connection_status" == "pass" &&
+                "$device_status" == "pass" ]]; then
+                verify_status="pass"
+            else
+                verify_status="fail"
+            fi
             ;;
 
         SECONDARY-ACTIVE)
             log "SECONDARY-ACTIVE performing full mesh verification (controller mode)"
-            verify_connections
-            verify_device_ids
+            local connection_status=fail
+            local device_status=fail
+
+            if verify_connections; then
+                connection_status=pass
+            fi
+
+            if verify_device_ids; then
+                device_status=pass
+            fi
+
             verify_folders
-            verify_status="pass"
+
+            if [[ "$connection_status" == "pass" &&
+                "$device_status" == "pass" ]]; then
+                verify_status="pass"
+            else
+                verify_status="fail"
+            fi
             ;;
 
         SECONDARY-PASSIVE)
@@ -133,7 +179,11 @@ main() {
             verify_device_ids
             json_set "$JSON_OUT" "peer_connected" "not_applicable"
             json_set "$JSON_OUT" "folder_health" "not_applicable"
-            verify_status="pass"
+            if verify_device_ids; then
+                verify_status="pass"
+            else
+                verify_status="fail"
+            fi
             ;;
 
         OFFSITE)
@@ -141,7 +191,11 @@ main() {
             verify_device_ids
             json_set "$JSON_OUT" "peer_connected" "not_applicable"
             json_set "$JSON_OUT" "folder_health" "not_applicable"
-            verify_status="pass"
+            if verify_device_ids; then
+                verify_status="pass"
+            else
+                verify_status="fail"
+            fi
             ;;
 
         *)

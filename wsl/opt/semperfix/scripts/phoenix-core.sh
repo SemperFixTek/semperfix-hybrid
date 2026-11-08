@@ -124,6 +124,7 @@ phoenix_load_config() {
 
         PEER_IP=$(jq -r '.syncthing.peer_ip // empty' "$CONFIG_JSON")
         PEER_PORT=$(jq -r '.syncthing.peer_port // empty' "$CONFIG_JSON")
+        PEER_DEVICE_ID=$(jq -r '.syncthing.peer_device_id // empty' "$CONFIG_JSON")
 
         PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // empty' "$CONFIG_JSON")
         PHOENIX_DEBUG=$(jq -r '.phoenix.debug // empty' "$CONFIG_JSON")
@@ -149,6 +150,7 @@ phoenix_load_config() {
 
     [[ -z "$PEER_IP" ]] && phoenix_error "Missing syncthing.peer_ip in phoenix.json"
     [[ -z "$PEER_PORT" ]] && phoenix_error "Missing syncthing.peer_port in phoenix.json"
+    [[ -z "$PEER_DEVICE_ID" ]] && phoenix_error "Missing syncthing.peer_device_id in phoenix.json"
 
     [[ -z "$PHOENIX_QUIC_PORT" ]] && phoenix_error "Missing phoenix.quic_port in phoenix.json"
     [[ -z "$PHOENIX_DEBUG" ]] && phoenix_error "Missing phoenix.debug in phoenix.json"
@@ -160,14 +162,12 @@ phoenix_load_config() {
     [[ -w "$LOG_DIR" ]] || phoenix_error "Log directory not writable: $LOG_DIR"
 
     # ---------- Export unified variables ----------
-    export NODE_ROLE HOSTNAME
-    export NODE_IP GATEWAY_IP DNS1 DNS2 NETWORK_MODE
+    export NODE_ROLE HOSTNAME NETWORK_MODE
+    export NODE_IP GATEWAY_IP DNS1 DNS2 
     export STATE_DIR LOG_DIR
     export API_URL API_KEY
-    export PEER_IP PEER_PORT
-    export PHOENIX_DEBUG
-    export PHOENIX_QUIC_PORT
-    export PHOENIX_LOGFILE
+    export PEER_IP PEER_PORT PEER_DEVICE_ID
+    export PHOENIX_DEBUG PHOENIX_QUIC_PORT PHOENIX_LOGFILE
 
     phoenix_log "INFO" "Phoenix core loaded for role: $NODE_ROLE"
 }

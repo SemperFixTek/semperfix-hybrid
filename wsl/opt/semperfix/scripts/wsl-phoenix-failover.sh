@@ -41,7 +41,7 @@ is_heartbeat_stale() {
     now=$(date +%s)
     epoch_ts=$(date -d "$ts" +%s 2>/dev/null || echo 0)
 
-    (( now - epoch_ts > 60 )) && echo "true" || echo "false"
+    (( now - epoch_ts > 60 )) && echo "true" || echo "false" 
 }
 log "checking mesh"
 is_mesh_degraded() {
@@ -70,21 +70,25 @@ is_quic_unreachable() {
 log "Checking Syncthing"
 is_syncthing_unreachable() {
     local code
-    code=$(curl -s -o /dev/null -w "%{http_code}" \
-        -H "X-API-Key: $API_KEY" \
-        "$API_URL/system/ping" 2>/dev/null || echo "000")
+    code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 \
+        -m 5 -H "X-API-Key: $API_KEY" "$API_URL/system/ping" 2>/dev/null || echo "000")
+
 
     [[ "$code" == "200" ]] && echo "false" || echo "true"
 }
 
 load_failover_state() {
     if [[ -f "$FAILOVER_JSON" ]]; then
-        jq -r '.recovery_strikes // 0' "$FAILOVER_JSON" 2>/dev/null || echo 0
+        jq -r '.failover_strikes // 0' "$FAILOVER_JSON" 2>/dev/null
     else
         echo 0
     fi
 }
 
+trigger_failover() {
+    log "triggering failover"
+    /opt/semperfix/scripts/phoenix-role-switch.sh "MASTERZERO-DEGRADED"
+}
 save_failover_state() {
     local strikes="$1"
     json_init "$FAILOVER_JSON"
@@ -119,10 +123,10 @@ main() {
     # Only MASTERZERO evaluates failover
     case "$NODE_ROLE" in
         MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER)
-            phoenix_debug "MASTERZERO node, will evaluate failover"
+            log "MASTERZERO node, will evaluate failover"
             ;;
         *)
-            phoenix_debug "not MASTERZERO node, failover bypassed"
+            log "not MASTERZERO node, failover bypassed"
             exit 0
             ;;
     esac
@@ -135,14 +139,10 @@ main() {
     
    
     heartbeat_stale=$(is_heartbeat_stale)
-    phoenix_debug "heartbeat stale check: ${heartbeat_stale}"
     mesh_bad=$(is_mesh_degraded)
-    phoenix_debug "mesh degraded check: ${mesh_bad}"
     quic_bad=$(is_quic_unreachable)
-    phoenix_debug "quic unreachable check: ${quic_bad}"
     syncthing_bad=$(is_syncthing_unreachable)
-    phoenix_debug "syncthing unreachable check: ${syncthing_bad}"
-
+    
     log "heartbeat_stale=$heartbeat_stale"
     log "mesh_bad=$mesh_bad"
     log "quic_bad=$quic_bad"
@@ -177,11 +177,12 @@ main() {
     #/opt/semperfix/scripts/json-perms.sh "$FAILOVER_JSON"
 
    # Policy:
-    # - Supervisor signals signals recovery_needed=true
+    # - Supervisor signals signals failover_needed=true
     # - QUIC reachable from MASTERZERO
     # - local mesh stable
+    strikes=$(load_failover_state)
     if [[ "$heartbeat_stale" == "true" || "$quic_bad" == "true" || \
-          "$mesh_bad" == "true" || "syncthing_bad" == "true" ]]; then
+          "$mesh_bad" == "true" || "$syncthing_bad" == "true" ]]; then
         strikes=$((strikes + 1))
         log "Failover strike recorded (count=$strikes)"
     else
@@ -195,7 +196,7 @@ main() {
     # Require 2 consecutive strikes
     if (( strikes >= 2 )); then       
         clear_failover_state
-    #    trigger_failover      
+        trigger_failover      
     else
         log "Failover not yet triggered (strikes<2)"
     fi
