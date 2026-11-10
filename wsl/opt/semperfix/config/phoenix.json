@@ -1,6 +1,6 @@
 {
   "node": {
-    "role": "MASTERZERO-RECOVER",
+    "role": "SECONDARY-PASSIVE",
     "hostname": "MASTERZERO",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs",
@@ -11,25 +11,26 @@
     "network_mode": "mirrored"
   },
   "syncthing": {
-    "api_url": "http://10.10.10.120:8384/rest",
-    "api_key": "9jZz6XCt3tbZ6rUUG7E9zHquRsanDH5Q",
-    "api_key_bak": "6JqzAfmGaxzynG3kUtjPWcjQVH5MgMTf",
-    "peer_ip": "10.10.10.120",
+    "api_url": "http://10.10.10.130:8384/rest",
+    "api_key": "6JqzAfmGaxzynG3kUtjPWcjQVH5MgMTf",
+    "peer_ip": "10.10.10.130",
     "peer_port": 22000,
     "peer_device_id": "F6NBBCH-GW2636Z-LOWXBUZ-33VVRMQ-BY5DUC6-YI5UWTN-6GLLBNW-MBQDIQH"
   },
   "mesh": {
-    "handshake_script": "/opt/semperfix/scripts/wsl-mesh-handshake.sh",
-    "verify_script": "/opt/semperfix/scripts/wsl-mesh-verify.sh",
-    "activate_script": "/opt/semperfix/scripts/wsl-mesh-activate.sh"
+    "handshake_script": "/opt/semperfix/scripts/mesh-handshake.sh",
+    "verify_script": "/opt/semperfix/scripts/mesh-verify.sh",
+    "activate_script": "/opt/semperfix/scripts/mesh-activate.sh",
+    "status_script": "/opt/semperfix/scripts/wsl-mesh-status.sh"
   },
   "phoenix": {
     "debug": "1",
     "quic_port": 22001,
-    "heartbeat_script": "/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh",
-    "status_write_script": "/opt/semperfix/scripts/wsl-phoenix-status-write.sh",
-    "supervisor_script": "/opt/semperfix/scripts/wsl-phoenix-supervisor.sh",
-    "failover_script": "/opt/semperfix/scripts/wsl-phoenix-failover.sh",
-    "descalate_script": "/opt/semperfix/scripts/wsl-phoenix-descalate.sh"
+    "heartbeat_script": "/opt/semperfix/scripts/phoenix-heartbeat.sh",
+    "status_write_script": "/opt/semperfix/scripts/phoenix-status-write.sh",
+    "supervisor_script": "/opt/semperfix/scripts/phoenix-supervisor.sh",
+    "failover_script": "/opt/semperfix/scripts/phoenix-failover.sh",
+    "descalate_script": "/opt/semperfix/scripts/phoenix-descalate.sh",
+    "role_switch_script": "/opt/semperfix/scripts/phoenix-role-switch.sh"
   }
 }

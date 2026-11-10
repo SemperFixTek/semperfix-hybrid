@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 UMask=002
 Type=oneshot
-ExecStart=/opt/semperfix/scripts/wsl-phoenix-heartbeat.sh
+ExecStart=/opt/semperfix/scripts/phoenix-heartbeat.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/heartbeat.log

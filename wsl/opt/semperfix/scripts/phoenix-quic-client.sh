@@ -15,71 +15,119 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" 2>/dev/null || true
+dos2unix "$0" >/dev/null 2>&1 || true
 
 source /opt/semperfix/scripts/phoenix-core.sh
 source /opt/semperfix/scripts/phoenix-json.sh
+
 phoenix_init
 
 LOGFILE="${LOG_DIR}/quic-client.log"
 STATUS_JSON="${STATE_DIR}/quic-client-status.json"
 
 PHOENIX_LOGFILE="$LOGFILE"
-log() { phoenix_log_file "INFO" "$*"; }
 
-# --- ROLE GUARD: Phoenix v2.1 ---
+log() {
+    phoenix_log_file "INFO" "$*"
+}
+
+# ------------------------------------------------------------
+# Role Guard
+# ------------------------------------------------------------
+
 case "$NODE_ROLE" in
     MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER|SECONDARY-ACTIVE)
+
         log "QUIC client enabled for role: ${NODE_ROLE}"
         ;;
+
     *)
+
         log "QUIC client disabled for role: ${NODE_ROLE}"
         exit 0
         ;;
 esac
 
+# ------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------
+
 QUIC_IP="${PEER_IP}"
 QUIC_PORT="${PHOENIX_QUIC_PORT}"
 
-check_quic() {
-    if echo "probe" | nc -u -w1 "${QUIC_IP}" "${QUIC_PORT}" &>/dev/null; then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
+# ------------------------------------------------------------
+# Probe
+# ------------------------------------------------------------
 
-measure_latency() {
-    local start end
+probe_quic() {
+
+    local start
+    local end
+    local response
+
     start=$(date +%s%3N)
 
-    if echo "probe" | nc -u -w1 "${QUIC_IP}" "${QUIC_PORT}" &>/dev/null; then
-        end=$(date +%s%3N)
-        echo $((end - start))
+    response=$(
+        printf 'probe\n' |
+        socat \
+            -T1 \
+            - \
+            "UDP:${QUIC_IP}:${QUIC_PORT}" \
+            2>/dev/null \
+        || true
+    )
+
+    end=$(date +%s%3N)
+
+    if [[ "$response" == "ack" ]]; then
+
+        echo "true:$((end - start))"
+
     else
-        echo "-1"
+
+        echo "false:-1"
+
     fi
 }
 
+# ------------------------------------------------------------
+# State Writer
+# ------------------------------------------------------------
+
 write_state() {
+
+    local reachable="$1"
+    local latency="$2"
+
     json_init "$STATUS_JSON"
+
     json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
-    json_set "$STATUS_JSON" "quic_reachable" "$1"
-    json_set "$STATUS_JSON" "latency_ms" "$2"
+
+    json_set "$STATUS_JSON" "quic_reachable" "$reachable"
+    json_set "$STATUS_JSON" "latency_ms" "$latency"
+
     json_finalize "$STATUS_JSON"
 
     /opt/semperfix/scripts/json-perms.sh "$STATUS_JSON"
 }
 
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
 log "Phoenix QUIC Client running once (${NODE_ROLE})"
 log "Target: ${QUIC_IP}:${QUIC_PORT}"
 
-quic_ok=$(check_quic)
-latency=$(measure_latency)
+result="$(probe_quic)"
 
-log "QUIC=${quic_ok}  Latency=${latency}ms"
+quic_ok="${result%%:*}"
+latency="${result##*:}"
 
-write_state "$quic_ok" "$latency"
+log "QUIC=${quic_ok} Latency=${latency}ms"
+
+write_state \
+    "$quic_ok" \
+    "$latency"
 
 exit 0

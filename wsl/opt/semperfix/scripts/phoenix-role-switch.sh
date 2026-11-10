@@ -185,7 +185,7 @@ start_units() {
 COMMON_CONTROLLER_UNITS=(
     semperfix-network-normalizer.service
     semperfix-inotify-monitor.service
-    semperfix-supervisor.timer
+    semperfix-phoenix-supervisor.timer
     semperfix-quic-client.timer
     semperfix-phoenix-heartbeat.timer
     semperfix-mesh-status.timer
@@ -264,7 +264,7 @@ case "$NEW_ROLE" in
             semperfix-phoenix-failover.timer \
             semperfix-phoenix-recovery.timer \
             semperfix-phoenix-descalate.timer \
-            semperfix-supervisor.timer \
+            semperfix-phoenix-supervisor.timer \
             semperfix-quic-client.timer \
             semperfix-mirror-secondary.timer 
 
@@ -288,7 +288,7 @@ case "$NEW_ROLE" in
             semperfix-phoenix-promote.timer \
             semperfix-quic-responder.service \
             semperfix-quic-client.timer \
-            semperfix-supervisor.timer \
+            semperfix-phoenix-supervisor.timer \
             semperfix-mirror-secondary.service
 
         start_units \

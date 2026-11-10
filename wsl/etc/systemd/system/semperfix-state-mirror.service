@@ -1,0 +1,15 @@
+[Unit]
+Description=SemperFix MASTERZERO State Mirror Permission Fix
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/semperfix/scripts/state-mirror.sh
+User=root
+Group=semperfix
+UMask=002
+StandardOutput=append:/opt/semperfix/logs/mirror-svc.log
+StandardError=append:/opt/semperfix/logs/mirror-svc.log
+
+[Install]
+WantedBy=multi-user.target

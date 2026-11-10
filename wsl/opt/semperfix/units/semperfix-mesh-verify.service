@@ -1,10 +1,11 @@
 [Unit]
 Description=Phoenix Mesh Verify
+After=semperfix-phoenix-supervisor.service semperfix-network-normalizer.service
 
 [Service]
 Type=oneshot
 UMask=002
-ExecStart=/opt/semperfix/scripts/wsl-mesh-verify.sh
+ExecStart=/opt/semperfix/scripts/mesh-verify.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/verify.log

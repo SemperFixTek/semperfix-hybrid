@@ -4,7 +4,7 @@ Description=Phoenix v2.1 MASTERZERO Recovery
 [Service]
 Type=oneshot
 UMask=002
-ExecStart=/opt/semperfix/scripts/wsl-phoenix-recover.sh
+ExecStart=/opt/semperfix/scripts/phoenix-recover.sh
 User=root
 Group=semperfix
 StandardOutput=append:/opt/semperfix/logs/recover.log

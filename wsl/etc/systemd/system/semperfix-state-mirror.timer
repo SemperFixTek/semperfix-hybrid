@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic Permission Fix for SECONDARY State Mirror
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=10s
+Unit=semperfix-state-mirror.service
+
+[Install]
+WantedBy=timers.target

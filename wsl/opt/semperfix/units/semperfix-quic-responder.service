@@ -3,16 +3,29 @@ Description=Phoenix v2.1 QUIC Responder (Passive Node)
 After=network-online.target
 Wants=network-online.target
 
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
 [Service]
 UMask=002
+
 Type=simple
+
 User=root
 Group=semperfix
+
+WorkingDirectory=/opt/semperfix
+
 ExecStart=/opt/semperfix/scripts/phoenix-quic-responder.sh
-Restart=always 
-RestartSec=5 
-StandardOutput=append:/opt/semperfix/logs/quic-responder.log
-StandardError=append:/opt/semperfix/logs/quic-responder.log
+
+Restart=always
+RestartSec=5
+
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

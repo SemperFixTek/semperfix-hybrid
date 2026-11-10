@@ -4,7 +4,7 @@ Description=Phoenix Supervisor Timer
 [Timer]
 OnBootSec=30s
 OnUnitActiveSec=60s
-Unit=semperfix-supervisor.service
+Unit=semperfix-phoenix-supervisor.service
 
 [Install]
 WantedBy=timers.target

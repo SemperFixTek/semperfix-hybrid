@@ -57,18 +57,18 @@ snapshot_logs() {
 main() {
     ROLE="$(get_role)"
     log "Descalate invoked for role: $ROLE"
-
+    local role_switch_script=$ROLE_SWITCH_SCRIPT
     case "$ROLE" in
         SECONDARY-ACTIVE)
             snapshot_logs
             log "Descalate: SECONDARY-ACTIVE → SECONDARY-PASSIVE via role-switcher"
-            /opt/semperfix/scripts/phoenix-role-switch.sh SECONDARY-PASSIVE
+            "$role_switch_script" SECONDARY-PASSIVE
             ;;
 
         MASTERZERO-DEGRADED)
             snapshot_logs
             log "Descalate: MASTERZERO-DEGRADED → MASTERZERO-RECOVER via role-switcher"
-            /opt/semperfix/scripts/phoenix-role-switch.sh MASTERZERO-RECOVER
+            "$role_switch_script" MASTERZERO-RECOVER
             ;;
 
         MASTERZERO-ACTIVE)
