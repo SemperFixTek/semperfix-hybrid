@@ -1,14 +1,23 @@
 [Unit]
 Description=Phoenix Status Writer
+After=network-online.target
 
 [Service]
 Type=oneshot
+
 UMask=002
-ExecStart=/opt/semperfix/scripts/wsl-phoenix-status-write.sh
+
 User=root
 Group=semperfix
-StandardOutput=append:/opt/semperfix/logs/status-write.log
-StandardError=append:/opt/semperfix/logs/status-write.log
+
+WorkingDirectory=/opt/semperfix
+
+ExecStart=/opt/semperfix/scripts/phoenix-status-write.sh
+
+Nice=5
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
