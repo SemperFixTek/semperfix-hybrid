@@ -112,6 +112,36 @@ validate_output() {
     }
 }
 
+get_failover_state() {
+
+    local state
+
+    state=$(
+        safe_field \
+            "$SUP_JSON" \
+            '.failover_status'
+    )
+
+    case "$state" in
+
+        needed)
+            echo "needed"
+            ;;
+
+        not_needed)
+            echo "not_needed"
+            ;;
+
+        *)
+            #
+            # Fail closed to safe operational state.
+            #
+            echo "not_needed"
+            ;;
+
+    esac
+}
+
 # ---------------------------------------------------------------------
 # Authoritative Role
 # ---------------------------------------------------------------------
@@ -241,14 +271,14 @@ write_status() {
     # -------------------------------------------------------------
 
     json_set_raw "$STATUS_FILE" "failover" "$(
-        jq -n \
-            --arg file_present "$(safe_exists "$FAIL_JSON")" \
-            --arg state "$(safe_field "$SUP_JSON" '.failover_status')" \
-            '{
-                file_present:$file_present,
-                state:$state
-            }'
-    )"
+    jq -n \
+        --arg file_present "$(safe_exists "$FAIL_JSON")" \
+        --arg state "$(get_failover_state)" \
+        '{
+            file_present:$file_present,
+            state:$state
+        }'
+)"
 
     json_finalize "$STATUS_FILE"
 
