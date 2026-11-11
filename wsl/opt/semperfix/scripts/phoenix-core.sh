@@ -14,6 +14,9 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
+CONFIG_DIR="/opt/semperfix/config"
+STATE_DIR="/var/lib/semperfix/state"
+LOG_DIR="/opt/semperfix/logs"
 CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 

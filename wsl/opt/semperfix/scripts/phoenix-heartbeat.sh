@@ -145,6 +145,7 @@ main() {
     local peer_connected="not_applicable"
     local quic_ok="not_applicable"
     local mesh_ok="not_applicable"
+    
 
     if check_api; then
         api_ok="true"

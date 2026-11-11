@@ -1,6 +1,6 @@
 {
   "node": {
-    "role": "SECONDARY-PASSIVE",
+    "role": "MASTERZERO-ACTIVE",
     "hostname": "MASTERZERO",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs",

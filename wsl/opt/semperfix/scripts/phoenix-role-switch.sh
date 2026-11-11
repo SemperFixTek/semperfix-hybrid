@@ -190,7 +190,7 @@ COMMON_CONTROLLER_UNITS=(
     semperfix-phoenix-heartbeat.timer
     semperfix-mesh-status.timer
     semperfix-phoenix-status-write.timer
-    semperfix-state-mirror.timer
+    semperfix-state-mirror-secondary.timer
 )
 
 start_common_controller_units() {
@@ -205,7 +205,7 @@ case "$NEW_ROLE" in
         stop_units \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-recovery.timer \
+            semperfix-phoenix-recover.timer \
             semperfix-state-export-windows.timer \
             semperfix-phoenix-descalate.timer 
 
@@ -220,7 +220,7 @@ case "$NEW_ROLE" in
             semperfix-phoenix-failover.timer \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-recovery.timer \
+            semperfix-phoenix-recover.timer \
             semperfix-state-export-windows.timer \
             
 
@@ -242,7 +242,7 @@ case "$NEW_ROLE" in
         start_common_controller_units
 
         start_units \
-            semperfix-phoenix-recovery.timer
+            semperfix-phoenix-recover.timer
         ;;
 
     SECONDARY-ACTIVE)
@@ -250,8 +250,8 @@ case "$NEW_ROLE" in
             semperfix-phoenix-failover.timer \
             semperfix-quic-responder.service \
             semperfix-phoenix-promote.timer \
-            semperfix-phoenix-recovery.timer \
-            semperfix-mirror-secondary.timer 
+            semperfix-phoenix-recover.timer \
+            semperfix-state-export-windows.timer
 
         start_common_controller_units
 
@@ -262,11 +262,11 @@ case "$NEW_ROLE" in
     SECONDARY-PASSIVE)
         stop_units \
             semperfix-phoenix-failover.timer \
-            semperfix-phoenix-recovery.timer \
+            semperfix-phoenix-recover.timer \
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-supervisor.timer \
             semperfix-quic-client.timer \
-            semperfix-mirror-secondary.timer 
+            semperfix-state-mirror-secondary.timer
 
         start_units \
             semperfix-phoenix-promote.timer \
@@ -282,14 +282,14 @@ case "$NEW_ROLE" in
     OFFSITE)
         stop_units \
             semperfix-phoenix-failover.timer \
-            semperfix-phoenix-recovery.timer \
-            semperfix-phoenix-recovery.service \
+            semperfix-phoenix-recover.timer \
+            semperfix-phoenix-recover.service \
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-promote.timer \
             semperfix-quic-responder.service \
             semperfix-quic-client.timer \
             semperfix-phoenix-supervisor.timer \
-            semperfix-mirror-secondary.service
+            semperfix-state-mirror-secondary.timer \
 
         start_units \
             semperfix-network-normalizer.service \

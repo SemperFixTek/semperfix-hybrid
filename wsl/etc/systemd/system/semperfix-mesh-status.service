@@ -1,14 +1,26 @@
 [Unit]
-Description=Phoenix v2.1 Passive Mesh Status
+Description=Phoenix Promotion Evaluation
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+
 UMask=002
-ExecStart=/opt/semperfix/scripts/wsl-mesh-status.sh
+
 User=root
 Group=semperfix
-StandardOutput=append:/opt/semperfix/logs/status.log
-StandardError=append:/opt/semperfix/logs/status.log
+
+WorkingDirectory=/opt/semperfix
+
+ExecStart=/opt/semperfix/scripts/mesh-status.sh
+
+Nice=5
+
+TimeoutStartSec=60
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
