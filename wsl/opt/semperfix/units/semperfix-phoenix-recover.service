@@ -1,14 +1,26 @@
 [Unit]
-Description=Phoenix v2.1 MASTERZERO Recovery
+Description=Phoenix Promotion Evaluation
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+
 UMask=002
-ExecStart=/opt/semperfix/scripts/phoenix-recover.sh
+
 User=root
 Group=semperfix
-StandardOutput=append:/opt/semperfix/logs/recover.log
-StandardError=append:/opt/semperfix/logs/recover.log
+
+WorkingDirectory=/opt/semperfix
+
+ExecStart=/opt/semperfix/scripts/phoenix-recover.sh
+
+Nice=5
+
+TimeoutStartSec=60
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

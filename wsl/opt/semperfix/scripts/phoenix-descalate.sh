@@ -16,6 +16,7 @@ export LANG=C.UTF-8
 
 dos2unix "$0" 2>/dev/null || true
 
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
@@ -23,9 +24,11 @@ HB_LOG="${LOG_DIR}/phoenix-heartbeat.log"
 SUP_LOG="${LOG_DIR}/phoenix-supervisor.log"
 DESC_LOG="${LOG_DIR}/phoenix-descalate.log"
 
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$DESC_LOG"
 log() { phoenix_log_file "INFO" "$*"; }
 
+# shellcheck disable=SC2034
 STATUS_FILE="${STATE_DIR}/phoenix-status.json"
 CONFIG_FILE="/opt/semperfix/config/phoenix.json"
 

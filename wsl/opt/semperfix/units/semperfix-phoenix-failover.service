@@ -1,16 +1,26 @@
 [Unit]
-Description=Phoenix Failover Evaluator
-After=semperfix-phoenix-status-write.service
+Description=Phoenix Promotion Evaluation
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+
 UMask=002
-ExecStart=/opt/semperfix/scripts/phoenix-failover.sh
+
 User=root
 Group=semperfix
-TimeoutStartSec=30
-StandardOutput=append:/opt/semperfix/logs/failover.log
-StandardError=append:/opt/semperfix/logs/failover.log
+
+WorkingDirectory=/opt/semperfix
+
+ExecStart=/opt/semperfix/scripts/phoenix-failover.sh
+
+Nice=5
+
+TimeoutStartSec=60
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

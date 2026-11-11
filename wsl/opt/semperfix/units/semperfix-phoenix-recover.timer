@@ -1,9 +1,14 @@
 [Unit]
-Description=Phoenix v2.1 MASTERZERO Recovery Timer
+Description=Phoenix Promotion Evaluation Timer
+After=semperfix-phoenix-status-write.service
 
 [Timer]
 OnBootSec=45s
 OnUnitActiveSec=60s
+
+Persistent=true
+RandomizedDelaySec=5
+
 Unit=semperfix-phoenix-recover.service
 
 [Install]

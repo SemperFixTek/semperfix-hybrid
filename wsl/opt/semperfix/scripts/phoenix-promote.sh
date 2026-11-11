@@ -5,17 +5,8 @@
 # Version: Phoenix v2.1
 # Component: phoenix-promote
 # Role: Controller / Responder / Observer (role-aware)
-# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade
+# Refactor: 2026-11-10 — v2.1 → v2.1.1 role model upgrade
 # Maintainer: SemperFix Automation (Bruce)
-# =====================================================================
-
-#!/usr/bin/env bash
-
-# =====================================================================
-# Phoenix Automation Suite — Promote
-# Version: Phoenix v2.2
-# Component: phoenix-promote
-# Role: SECONDARY-PASSIVE only
 # =====================================================================
 
 set -euo pipefail
@@ -27,6 +18,7 @@ export LANG=C.UTF-8
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 
@@ -101,12 +93,8 @@ get_failover_state() {
     jq -r '.failover.state // "unknown"' "$STATUS_JSON"
 }
 
-get_mesh_ok() {
-    jq -r '.mesh.mesh_ok // "false"' "$STATUS_JSON"
-}
-
-get_quic_reachable() {
-    jq -r '.quic.reachable // "false"' "$STATUS_JSON"
+get_peer_connected() {
+    jq -r '.heartbeat.peer_connected // "false"' "$STATUS_JSON"
 }
 
 # ---------------------------------------------------------
@@ -117,8 +105,7 @@ load_promote_state() {
 
     if [[ -f "$PROMOTE_STATE_JSON" ]]; then
 
-        jq -r '.failover_strikes // 0' \
-            "$PROMOTE_STATE_JSON" 2>/dev/null || echo 0
+        jq -r '.failover_strikes // 0' "$PROMOTE_STATE_JSON" 2>/dev/null || echo 0
 
     else
 
@@ -131,7 +118,6 @@ save_promote_state() {
 
     local strikes="$1"
 
-    # shellcheck disable=SC2034
     json_init "$PROMOTE_STATE_JSON"
 
     json_set "$PROMOTE_STATE_JSON" "timestamp" "$(date -Iseconds)"
@@ -153,7 +139,7 @@ trigger_promotion() {
 
     log "Promotion triggered"
 
-    ${ROLE_SWITCH_SCRIPT} "SECONDARY-ACTIVE"
+    "${ROLE_SWITCH_SCRIPT}" "SECONDARY-ACTIVE"
 }
 
 # ---------------------------------------------------------
@@ -161,6 +147,10 @@ trigger_promotion() {
 # ---------------------------------------------------------
 
 main() {
+
+    #
+    # Only passive nodes may promote
+    #
 
     [[ "$NODE_ROLE" != "SECONDARY-PASSIVE" &&
        "$NODE_ROLE" != "SECONDARY" ]] && exit 0
@@ -171,29 +161,28 @@ main() {
     }
 
     local failover_state
-    local mesh_ok
-    local quic_ok
+    local peer_connected
     local strikes
 
     failover_state=$(get_failover_state)
-    mesh_ok=$(get_mesh_ok)
-    quic_ok=$(get_quic_reachable)
+    peer_connected=$(get_peer_connected)
 
     strikes=$(load_promote_state)
 
-    log "Promotion check: failover=${failover_state} mesh_ok=${mesh_ok} quic_ok=${quic_ok} strikes=${strikes}"
+    log "Promotion check: failover=${failover_state} peer_connected=${peer_connected} strikes=${strikes}"
 
     #
-    # Promotion policy
+    # Promotion policy:
     #
-    # failover must be needed
-    # mesh must be unhealthy
-    # peer must be unreachable
+    # MASTERZERO has requested failover
+    # AND
+    # SECONDARY can no longer see MASTERZERO
+    #
+    # Require two consecutive failures.
     #
 
     if [[ "$failover_state" == "needed" &&
-          "$mesh_ok" != "true" &&
-          "$quic_ok" != "true"
+          "$peer_connected" != "true"
     ]]
     then
 
@@ -208,10 +197,6 @@ main() {
     fi
 
     save_promote_state "$strikes"
-
-    #
-    # Require two consecutive strikes
-    #
 
     if (( strikes >= 2 )); then
 

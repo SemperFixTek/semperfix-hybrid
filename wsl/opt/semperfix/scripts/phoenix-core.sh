@@ -14,14 +14,8 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" 2>/dev/null || true
-
-CONFIG_DIR="/opt/semperfix/config"
 CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
-#CONFIG_CONF="${CONFIG_DIR}/phoenix.conf"
-
-mkdir -p /var/lib/semperfix/state
-mkdir -p /opt/semperfix/logs
+mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 # ---------- Logging Helpers ----------
 phoenix_error() {
@@ -49,8 +43,6 @@ phoenix_log_file() {
     fi
 }
 
-# TODO: change location of PHOENIX_DEBUG to JSON file (done 2026-11-09), and retire CONF file (deactivated)
-
 phoenix_debug() {
     local message="$1"
     if [[ "${PHOENIX_DEBUG:-0}" == "1" ]]; then
@@ -58,30 +50,31 @@ phoenix_debug() {
     fi
 }
 
-# ---------- Optional: Validate phoenix.conf variables ----------
-#phoenix_validate_conf() {
-#    local required_vars=(
-#       PHOENIX_DEBUG
-#    )
+phoenix_is_stale() {
 
-#    for var in "${required_vars[@]}"; do
-#        if [[ -z "${!var:-}" ]]; then
-#            phoenix_error "Missing required variable in phoenix.conf: $var"
-#       fi
-#    done
-#}
+    local file="$1"
+    local max_age="$2"
+
+    [[ -f "$file" ]] || return 0
+
+    local now
+    local modified
+
+    now=$(date +%s)
+    modified=$(stat -c %Y "$file")
+
+    (( now - modified > max_age ))
+}
+
+phoenix_required_file() {
+
+    local file="$1"
+
+    [[ -f "$file" ]]
+}
 
 # ---------- Load Phoenix Configuration ----------
 phoenix_load_config() {
-
-    # Load phoenix.conf
-    #if [[ -f "$CONFIG_CONF" ]]; then
-        # shellcheck disable=SC1090
-    #    source "$CONFIG_CONF"
-#        phoenix_validate_conf
-    #else
-    #    phoenix_error "Missing phoenix.conf at $CONFIG_CONF"
-    #fi
 
     # Load phoenix.json
     if [[ -f "$CONFIG_JSON" ]]; then
@@ -89,6 +82,7 @@ phoenix_load_config() {
         # Optional: config checksum for drift detection
         CONFIG_SHA=$(sha256sum "$CONFIG_JSON" | awk '{print $1}')
         phoenix_log "INFO" "Loaded phoenix.json (sha256: $CONFIG_SHA)"
+        export CONFIG_SHA
 
         NODE_ROLE=$(jq -r '.node.role // empty' "$CONFIG_JSON")
 
@@ -127,7 +121,7 @@ phoenix_load_config() {
         PEER_DEVICE_ID=$(jq -r '.syncthing.peer_device_id // empty' "$CONFIG_JSON")
 
         PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // empty' "$CONFIG_JSON")
-        PHOENIX_DEBUG=$(jq -r '.phoenix.debug // empty' "$CONFIG_JSON")
+        PHOENIX_DEBUG=$(jq -r '.phoenix.debug // "0"' "$CONFIG_JSON")
 
         HANDSHAKE_SCRIPT=$(jq -r '.mesh.handshake_script // empty' "$CONFIG_JSON")
         VERIFY_SCRIPT=$(jq -r '.mesh.verify_script // empty' "$CONFIG_JSON")
@@ -167,7 +161,7 @@ phoenix_load_config() {
     [[ -z "$ROLE_SWITCH_SCRIPT" ]] && phoenix_error "Missing phoenix.role_switch_script in phoenix.json"
 
     # ---------- Ensure directories exist + writable ----------
-    mkdir -p "$STATE_DIR" "$LOG_DIR"
+    
 
     [[ -w "$STATE_DIR" ]] || phoenix_error "State directory not writable: $STATE_DIR"
     [[ -w "$LOG_DIR" ]] || phoenix_error "Log directory not writable: $LOG_DIR"

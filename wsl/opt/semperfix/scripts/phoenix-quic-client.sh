@@ -17,7 +17,9 @@ export LANG=C.UTF-8
 
 dos2unix "$0" >/dev/null 2>&1 || true
 
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 
 phoenix_init
@@ -25,6 +27,7 @@ phoenix_init
 LOGFILE="${LOG_DIR}/quic-client.log"
 STATUS_JSON="${STATE_DIR}/quic-client-status.json"
 
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$LOGFILE"
 
 log() {
