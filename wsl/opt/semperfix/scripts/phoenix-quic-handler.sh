@@ -34,6 +34,6 @@ peer="${SOCAT_PEERADDR:-unknown}"
 
 phoenix_log_file "INFO" "QUIC probe received from ${peer}"
 
-printf 'ack\n' | socat -u - "UDP-SENDTO:${peer}:${PORT}" >/dev/null 2>&1
-
+printf 'ack\n' | socat -u - UDP-SENDTO:${peer}:${PORT} >/dev/null 2>&1
+phoenix_log_file "INFO" "Sending ACK to ${peer}:${PORT}"
 exit 0
