@@ -1,16 +1,26 @@
 [Unit]
-Description=Phoenix v2 QUIC Client / QUIC Health Monitor
+Description=Phoenix Promotion Evaluation
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-UMask=002
 Type=oneshot
+
+UMask=002
+
 User=root
 Group=semperfix
+
+WorkingDirectory=/opt/semperfix
+
 ExecStart=/opt/semperfix/scripts/phoenix-quic-client.sh
-StandardOutput=append:/opt/semperfix/logs/quic-client.log
-StandardError=append:/opt/semperfix/logs/quic-client.log
+
+Nice=5
+
+TimeoutStartSec=60
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
