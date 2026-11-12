@@ -15,7 +15,7 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" >/dev/null 2>&1 || true
+# dos2unix "$0" >/dev/null 2>&1 || true
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
@@ -71,16 +71,12 @@ probe_quic() {
     start=$(date +%s%3N)
 
     response=$(
-        printf 'probe\n' |
-        socat \
-            -T1 \
-            - \
-            "UDP:${QUIC_IP}:${QUIC_PORT}" \
-            2>/dev/null \
-        || true
-    )
+    printf 'probe\n' | socat -T2 STDIO UDP-CONNECT:"${QUIC_IP}":"${QUIC_PORT}"
+)
 
     end=$(date +%s%3N)
+
+    response=$(echo "$response" | tr -d '\r\n')
 
     if [[ "$response" == "ack" ]]; then
 
@@ -129,8 +125,6 @@ latency="${result##*:}"
 
 log "QUIC=${quic_ok} Latency=${latency}ms"
 
-write_state \
-    "$quic_ok" \
-    "$latency"
+write_state "$quic_ok" "$latency"
 
 exit 0
