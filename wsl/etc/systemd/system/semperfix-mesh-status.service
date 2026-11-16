@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Promotion Evaluation
+Description=Mesh Status Service
 After=network-online.target
 Wants=network-online.target
 

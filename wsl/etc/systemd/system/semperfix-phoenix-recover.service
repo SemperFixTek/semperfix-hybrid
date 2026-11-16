@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Promotion Evaluation
+Description=Phoenix Recover Evaluation Service
 After=network-online.target
 Wants=network-online.target
 

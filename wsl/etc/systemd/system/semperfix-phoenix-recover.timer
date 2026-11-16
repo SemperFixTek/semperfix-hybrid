@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Promotion Evaluation Timer
+Description=Phoenix Recover Evaluation Timer
 After=semperfix-phoenix-status-write.service
 
 [Timer]

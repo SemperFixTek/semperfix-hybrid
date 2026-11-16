@@ -13,16 +13,16 @@ set -euo pipefail
 umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
-
-dos2unix "$0" 2>/dev/null || true
-
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 phoenix_init
 
 CLUSTER_JSON="${STATE_DIR}/cluster-view.json"
 CLUSTER_LOG="${LOG_DIR}/cluster-view.log"
 WINDOWS_DIR="/mnt/c/semperfix/state"
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$CLUSTER_LOG"
 log() { phoenix_log_file "INFO" "$*"; }
 
@@ -42,15 +42,14 @@ log "Cluster-view roles: MASTERZERO=${master_role} SECONDARY=${secondary_role}"
 # ---------------------------------------------------------
 # MASTERZERO telemetry (always full)
 # ---------------------------------------------------------
-#mz = {
+#mz=(
 #    "role": $master_role,
 #    "heartbeat": load_json "${STATE_DIR}/phoenix-heartbeat.json",
 #    "supervisor": load_json "${STATE_DIR}/phoenix-supervisor.json",
 #    "mesh": load_json "${STATE_DIR}/mesh-status.json",
-#    "quic": load_json "${STATE_DIR}/quic-client-status.json",
 #    "failover": load_json "${STATE_DIR}/phoenix-failover.json",
-#    "windows": load_json "${STATE_DIR}/windows-heartbeat.json" }
-#}
+#    "windows": load_json "${STATE_DIR}/windows-heartbeat.json" 
+#)
 mz_role=$master_role
 mz_heartbeat=$(load_json "${STATE_DIR}/phoenix-heartbeat.json")
 mz_supervisor=$(load_json "${STATE_DIR}/phoenix-supervisor.json")
@@ -92,7 +91,7 @@ json_set_raw "$CLUSTER_JSON" "masterzero" "$(jq -n \
     --argjson quic "$mz_quic" \
     --argjson fail "$mz_failover" \
     --argjson win "$mz_windows" \
-    --arg role "$master_role" \
+    --arg role "$mz_role" \
     '{role:$role, heartbeat:$hb, supervisor:$sup, mesh:$mesh, quic:$quic, failover:$fail, windows:$win}')"
 
 json_set_raw "$CLUSTER_JSON" "secondary" "$(jq -n \

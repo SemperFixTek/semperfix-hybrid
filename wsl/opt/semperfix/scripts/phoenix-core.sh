@@ -126,9 +126,6 @@ phoenix_load_config() {
         PHOENIX_QUIC_PORT=$(jq -r '.phoenix.quic_port // empty' "$CONFIG_JSON")
         PHOENIX_DEBUG=$(jq -r '.phoenix.debug // "0"' "$CONFIG_JSON")
 
-        HANDSHAKE_SCRIPT=$(jq -r '.mesh.handshake_script // empty' "$CONFIG_JSON")
-        VERIFY_SCRIPT=$(jq -r '.mesh.verify_script // empty' "$CONFIG_JSON")
-        ACTIVATE_SCRIPT=$(jq -r '.mesh.activate_script // empty' "$CONFIG_JSON")
         ROLE_SWITCH_SCRIPT=$(jq -r '.phoenix.role_switch_script // empty' "$CONFIG_JSON")
 
     else
@@ -158,13 +155,9 @@ phoenix_load_config() {
     [[ -z "$PHOENIX_QUIC_PORT" ]] && phoenix_error "Missing phoenix.quic_port in phoenix.json"
     [[ -z "$PHOENIX_DEBUG" ]] && phoenix_error "Missing phoenix.debug in phoenix.json"
 
-    [[ -z "$HANDSHAKE_SCRIPT" ]] && phoenix_error "Missing mesh.handshake_script in phoenix.json"
-    [[ -z "$VERIFY_SCRIPT" ]] && phoenix_error "Missing mesh.verify_script in phoenix.json"
-    [[ -z "$ACTIVATE_SCRIPT" ]] && phoenix_error "Missing mesh.activate_script in phoenix.json"
     [[ -z "$ROLE_SWITCH_SCRIPT" ]] && phoenix_error "Missing phoenix.role_switch_script in phoenix.json"
 
     # ---------- Ensure directories exist + writable ----------
-    
 
     [[ -w "$STATE_DIR" ]] || phoenix_error "State directory not writable: $STATE_DIR"
     [[ -w "$LOG_DIR" ]] || phoenix_error "Log directory not writable: $LOG_DIR"
@@ -176,7 +169,7 @@ phoenix_load_config() {
     export API_URL API_KEY
     export PEER_IP PEER_PORT PEER_DEVICE_ID
     export PHOENIX_DEBUG PHOENIX_QUIC_PORT PHOENIX_LOGFILE
-    export HANDSHAKE_SCRIPT VERIFY_SCRIPT ACTIVATE_SCRIPT ROLE_SWITCH_SCRIPT
+    export ROLE_SWITCH_SCRIPT
 
     phoenix_log "INFO" "Phoenix core loaded for role: $NODE_ROLE"
 }

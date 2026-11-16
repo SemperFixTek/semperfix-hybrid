@@ -18,8 +18,16 @@ export LANG=C.UTF-8
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
-
 LOGFILE="${LOG_DIR}/quic-handler.log"
+payload="$(cat)"
+
+echo "addr=$SOCAT_PEERADDR \
+port=$SOCAT_PEERPORT \
+payload=[$payload]"
+phoenix_log_file \
+  "INFO" \
+  "PAYLOAD=[$payload]"
+
 # PORT="${PHOENIX_QUIC_PORT}"
 
 # shellcheck disable=SC2034
@@ -35,7 +43,7 @@ peer_port="${SOCAT_PEERPORT:-0}"
 
 phoenix_log_file "INFO" "QUIC probe received from ${peer_addr}:${peer_port}"
 
-printf 'ack\n' | socat -u - UDP-SENDTO:${peer_addr}:${peer_port} >/dev/null 2>&1
+printf 'ack\n' | socat -u - UDP-SENDTO:${peer_addr}:${peer_port}
 
 phoenix_log_file "INFO" "Sending ACK to ${peer_addr}:${peer_port}"
 phoenix_log_file "INFO" "peer=${SOCAT_PEERADDR:-none} port=${SOCAT_PEERPORT:-none}"

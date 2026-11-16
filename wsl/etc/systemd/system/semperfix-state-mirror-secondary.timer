@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodic mirror of SECONDARY state JSON into WSL
+Description=Periodic mirror of SECONDARY state JSON into WSL Timer
 
 [Timer]
 OnBootSec=10s
