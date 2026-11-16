@@ -18,8 +18,16 @@ export LANG=C.UTF-8
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
-
 LOGFILE="${LOG_DIR}/quic-handler.log"
+payload="$(cat)"
+
+echo "addr=$SOCAT_PEERADDR \
+port=$SOCAT_PEERPORT \
+payload=[$payload]"
+phoenix_log_file \
+  "INFO" \
+  "PAYLOAD=[$payload]"
+
 # PORT="${PHOENIX_QUIC_PORT}"
 
 # shellcheck disable=SC2034

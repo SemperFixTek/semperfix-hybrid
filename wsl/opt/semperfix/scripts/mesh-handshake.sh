@@ -16,9 +16,6 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# Safety: prevent CRLF issues
-dos2unix "$0" 2>/dev/null || true
-
 # Load Phoenix core + JSON helpers
 
 # shellcheck disable=SC1091

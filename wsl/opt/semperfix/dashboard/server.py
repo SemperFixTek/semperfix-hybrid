@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 import json
 import os
 
@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 STATE_DIR = "/var/lib/semperfix/state"
 SECONDARY_DIR = f"{STATE_DIR}/secondary"
+WIN_DIR = "/mnt/c/semperfix/state"
 
 def load_json(path):
     try:
@@ -14,6 +15,16 @@ def load_json(path):
             return json.load(f)
     except Exception as e:
         return {"error": str(e), "path": path}
+
+@app.route("/")
+def index():
+    return send_from_directory("/opt/semperfix/dashboard/templates", "index.html")
+
+@app.route("/logs")
+def logs():
+    return jsonify({
+        "status": "not_implemented"
+    })
 
 @app.route("/cluster")
 def cluster():
@@ -35,7 +46,8 @@ def cluster():
         "verify": load_json(f"{STATE_DIR}/mesh-verify.json"),
         "activate": load_json(f"{STATE_DIR}/mesh-activate.json"),
         "failover": load_json(f"{STATE_DIR}/phoenix-failover.json"),
-        "windows": load_json(f"{STATE_DIR}/windows-heartbeat.json"),
+        "windows": load_json(f"{WIN_DIR}/windows-heartbeat.json"),
+        "quic": load_json(f"{STATE_DIR}/quic-client-status.json"),
     }
 
     # SECONDARY telemetry (role-aware)
@@ -54,11 +66,13 @@ def cluster():
         secondary["verify"] = load_json(f"{SECONDARY_DIR}/mesh-verify.json")
         secondary["activate"] = load_json(f"{SECONDARY_DIR}/mesh-activate.json")
         secondary["failover"] = load_json(f"{SECONDARY_DIR}/phoenix-failover.json")
+        secondary["handshake"] = load_json(f"{SECONDARY_DIR}/mesh-handshake.json")
     else:
         secondary["supervisor"] = {"status": "not_applicable"}
         secondary["verify"] = {"status": "not_applicable"}
         secondary["activate"] = {"status": "not_applicable"}
         secondary["failover"] = {"status": "not_applicable"}
+        secondary["handshake"] = {"status": "not_applicable"}
 
     return jsonify({"masterzero": master, "secondary": secondary})
 

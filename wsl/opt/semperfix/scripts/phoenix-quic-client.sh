@@ -15,8 +15,6 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-# dos2unix "$0" >/dev/null 2>&1 || true
-
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
 # shellcheck disable=SC1091
@@ -64,29 +62,7 @@ QUIC_PORT="${PHOENIX_QUIC_PORT}"
 
 probe_quic() {
 
-    local start
-    local end
-    local response
-
-    start=$(date +%s%3N)
-
-    response=$(
-    printf 'probe\n' | socat -T2 STDIO UDP-CONNECT:"${QUIC_IP}":"${QUIC_PORT}"
-)
-
-    end=$(date +%s%3N)
-
-    response=$(echo "$response" | tr -d '\r\n')
-
-    if [[ "$response" == "ack" ]]; then
-
-        echo "true:$((end - start))"
-
-    else
-
-        echo "false:-1"
-
-    fi
+    /opt/semperfix/scripts/phoenix-quic-probe.py "$QUIC_IP" "$QUIC_PORT"
 }
 
 # ------------------------------------------------------------

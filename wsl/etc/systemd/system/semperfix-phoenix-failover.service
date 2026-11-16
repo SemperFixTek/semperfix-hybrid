@@ -1,5 +1,5 @@
 [Unit]
-Description=Phoenix Promotion Evaluation
+Description=Phoenix Failover Evaluation/Control
 After=network-online.target
 Wants=network-online.target
 

@@ -1,0 +1,19 @@
+
+[Unit] 
+Description=Phoenix v2.1 Inotify Monitor 
+After=local-fs.target 
+Wants=local-fs.target  
+
+[Service]
+UMask=002
+Type=simple 
+User=root
+Group=semperfix
+ExecStart=/opt/semperfix/monitors/inotify-monitor.sh 
+Restart=always 
+RestartSec=5 
+StandardOutput=append:/opt/semperfix/logs/inotify.log 
+StandardError=append:/opt/semperfix/logs/inotify.log  
+
+[Install] 
+WantedBy=multi-user.target

@@ -15,12 +15,12 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" 2>/dev/null || true
-
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
 LOGFILE="${LOG_DIR}/export-state.log"
+# shellcheck disable=SC2034
 PHOENIX_LOGFILE="$LOGFILE"
 
 log() { phoenix_log_file INFO "$*"; }
@@ -45,7 +45,11 @@ get_role() {
 transfer_export() {
     cp "$SRC_DIR"/phoenix-heartbeat.json      "$TRANS_DIR"/ 2>/dev/null || true
     cp "$SRC_DIR"/mesh-status.json            "$TRANS_DIR"/ 2>/dev/null || true
+    cp "$SRC_DIR"/mesh-activate.json          "$TRANS_DIR"/ 2>/dev/null || true
+    cp "$SRC_DIR"/mesh-verify.json            "$TRANS_DIR"/ 2>/dev/null || true
+    cp "$SRC_DIR"/mesh-handshake.json         "$TRANS_DIR"/ 2>/dev/null || true
     cp "$SRC_DIR"/quic-client-status.json     "$TRANS_DIR"/ 2>/dev/null || true
+    cp "$SRC_DIR"/phoenix-status.json         "$TRANS_DIR"/ 2>/dev/null || true
     cp "$SRC_DIR"/phoenix-supervisor.json     "$TRANS_DIR"/ 2>/dev/null || true
     cp "$SRC_DIR"/phoenix-failover.json       "$TRANS_DIR"/ 2>/dev/null || true
     cp "$WIN_STATE"/windows-heartbeat.json    "$TRANS_DIR"/ 2>/dev/null || true
@@ -62,21 +66,31 @@ export_passive() {
 
     cp "$TRANS_DIR"/phoenix-heartbeat.json      "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/mesh-status.json            "$DEST_DIR"/ 2>/dev/null || true
-#   cp "$TRANS_DIR"/quic-client-status.json     "$DEST_DIR"/ 2>/dev/null || true
+    cp "$TRANS_DIR"/phoenix-status.json         "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/windows-heartbeat.json      "$DEST_DIR"/ 2>/dev/null || true
-    rm "$TRANS_DIR"/phoenix-supervisor.json 2>/dev/null || true
-    rm "$TRANS_DIR"/phoenix-failover.json 2>/dev/null || true
-}   
+    rm "$TRANS_DIR"/phoenix-supervisor.json                  2>/dev/null || true
+    rm "$TRANS_DIR"/phoenix-failover.json                    2>/dev/null || true
+    rm "$TRANS_DIR"/mesh-activate.json                       2>/dev/null || true
+    rm "$TRANS_DIR"/mesh-verify.json                         2>/dev/null || true
+    rm "$TRANS_DIR"/mesh-handshake.json                      2>/dev/null || true
+    rm "$TRANS_DIR"/quic-client-status.json                  2>/dev/null || true
+
+}
 
 export_active() {
     log "Role SECONDARY-ACTIVE: exporting full controller telemetry"
 
     cp "$TRANS_DIR"/phoenix-heartbeat.json      "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/mesh-status.json            "$DEST_DIR"/ 2>/dev/null || true
+    cp "$TRANS_DIR"/mesh-activate.json          "$DEST_DIR"/ 2>/dev/null || true
+    cp "$TRANS_DIR"/mesh-verify.json            "$DEST_DIR"/ 2>/dev/null || true
+    cp "$TRANS_DIR"/mesh-handshake.json         "$DEST_DIR"/ 2>/dev/null || true
+    cp "$TRANS_DIR"/phoenix-status.json         "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/quic-client-status.json     "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/phoenix-supervisor.json     "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/phoenix-failover.json       "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/windows-heartbeat.json      "$DEST_DIR"/ 2>/dev/null || true
+    
 }
 
 case "$ROLE" in

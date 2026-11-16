@@ -1,0 +1,16 @@
+[Unit]
+Description=Mirror SECONDARY state JSON from Windows NTFS into WSL
+After=network.target
+
+[Service]
+Type=oneshot
+UMask=002
+ExecStart=/opt/semperfix/scripts/state-mirror-secondary.sh
+User=root
+Group=semperfix
+StandardOutput=append:/opt/semperfix/logs/mirror.log
+StandardError=append:/opt/semperfix/logs/mirror.log
+
+
+[Install]
+WantedBy=multi-user.target

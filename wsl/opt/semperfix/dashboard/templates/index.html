@@ -107,6 +107,7 @@
             container.innerHTML = "";
 
             for (const [name, node] of Object.entries(cluster)) {
+                console.log("NODE", name, node);
                 const card = document.createElement("div");
                 card.className = "node-card";
 
@@ -141,24 +142,43 @@
                         </div>`;
                 }
 
-                // Mesh + QUIC health indicators
-                const mesh_ok = node.mesh?.mesh_ok;
-                const quic_ok = node.quic?.quic_ok;
+               // Mesh + QUIC health indicators
+
+                const mesh_ok =
+                    node.mesh?.overall_status ??
+                    "unknown";
+
+                const quic_ok =
+                    node.quic?.quic_reachable ??
+                    "unknown";
+
+                const meshClass =
+                    mesh_ok === "healthy"
+                        ? "ok"
+                        : "bad";
+
+                const quicClass =
+                    String(quic_ok).toLowerCase() === "true"
+                        ? "ok"
+                        : "bad";
 
                 card.innerHTML += `
                     <div class="health-grid">
+
                         <div class="health-item">
                             Mesh:
-                            <span class="${mesh_ok === 'true' ? 'ok' : 'bad'}">
+                            <span class="${meshClass}">
                                 ${mesh_ok}
                             </span>
                         </div>
+
                         <div class="health-item">
                             QUIC:
-                            <span class="${quic_ok === 'true' ? 'ok' : 'bad'}">
+                            <span class="${quicClass}">
                                 ${quic_ok}
                             </span>
                         </div>
+
                     </div>
                 `;
 

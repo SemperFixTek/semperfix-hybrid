@@ -16,8 +16,6 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" >/dev/null 2>&1 || true
-
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
 # shellcheck disable=SC1091
@@ -56,19 +54,19 @@ flock -n 200 || {
 #
 
 run_handshake() {
-    local handshake_script=$HANDSHAKE_SCRIPT
+    local handshake_script="/opt/semperfix/scripts/mesh-handshake.sh"
     # shellcheck disable=SC2154
     ${handshake_script} || true
 }
 
 run_verify() {
-    local verify_script=$VERIFY_SCRIPT
+    local verify_script="/opt/semperfix/scripts/mesh-verify.sh"
     # shellcheck disable=SC2154
     ${verify_script} || true
 }
 
 run_activate() {
-    local activate_script=$ACTIVATE_SCRIPT
+    local activate_script="/opt/semperfix/scripts/mesh-activate.sh"
     # shellcheck disable=SC2154
     ${activate_script} || true
 }
@@ -229,14 +227,6 @@ main() {
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
     json_set "$SUP_FILE" "failover_status" "$failover_status"
-
-    #
-    # Backward compatibility
-    #
-
-    json_set "$SUP_FILE" "handshake" "$handshake_status"
-    json_set "$SUP_FILE" "verify" "$verify_status"
-    json_set "$SUP_FILE" "activate" "$activate_status"
 
     json_finalize "$SUP_FILE"
 

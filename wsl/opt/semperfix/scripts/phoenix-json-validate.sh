@@ -13,8 +13,7 @@ umask 002
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-dos2unix "$0" 2>/dev/null || true
-
+# shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
 phoenix_init
 
