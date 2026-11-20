@@ -31,7 +31,7 @@ PHOENIX_LOGFILE="$LOGFILE"
 log() {
     phoenix_log_file "INFO" "$*"
 }
-
+#Todo: Fix fact that in failover json log doesn't update, turns stale 
 # ------------------------------------------------------------
 # Role Guard
 # ------------------------------------------------------------
