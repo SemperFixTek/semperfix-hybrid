@@ -5,9 +5,6 @@ Description=Phoenix Descalate Timer
 OnBootSec=45s
 OnUnitActiveSec=60s
 
-Persistent=true
-RandomizedDelaySec=5
-
 Unit=semperfix-phoenix-descalate.service
 
 [Install]

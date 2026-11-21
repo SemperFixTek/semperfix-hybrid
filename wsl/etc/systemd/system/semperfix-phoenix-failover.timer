@@ -5,8 +5,6 @@ Description=Phoenix Failover Evaluator Timer
 OnBootSec=45s
 OnUnitActiveSec=60s
 
-Persistent=true
-RandomizedDelaySec=5
 
 Unit=semperfix-phoenix-failover.service
 
