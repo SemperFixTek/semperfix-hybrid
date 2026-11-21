@@ -2,7 +2,7 @@
 Description=Phoenix v2.1 Network Normalizer
 After=network-online.target
 Wants=network-online.target
-Before=semperfix-supervisor.service
+Before=semperfix-phoenix-supervisor.service
 
 [Service]
 Type=oneshot

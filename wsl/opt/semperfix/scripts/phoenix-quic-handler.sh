@@ -35,10 +35,6 @@ PHOENIX_LOGFILE="$LOGFILE"
 
 peer_addr="${SOCAT_PEERADDR:-unknown}"
 peer_port="${SOCAT_PEERPORT:-0}"
-payload="$(cat)"
-
-phoenix_log_file "INFO" "PAYLOAD=[$payload]"
-echo "addr=$SOCAT_PEERADDR port=$SOCAT_PEERPORT payload=[$payload]"
 
 #
 # Optional:
@@ -47,16 +43,9 @@ echo "addr=$SOCAT_PEERADDR port=$SOCAT_PEERPORT payload=[$payload]"
 
 phoenix_log_file "INFO" "QUIC probe received from ${peer_addr}:${peer_port}"
 
-phoenix_log_file "INFO" \
-    "Sending ACK to ${peer_addr}:${peer_port}"
+printf 'ack\n' | socat -u - UDP-SENDTO:${peer_addr}:${peer_port}
 
-printf 'ack\n' |
-socat -u - UDP-SENDTO:"${peer_addr}:${peer_port}"
-
-phoenix_log_file "INFO" \
-    "ACK send complete"
-
-#phoenix_log_file "INFO" "Sending ACK to ${peer_addr}:${peer_port}"
+phoenix_log_file "INFO" "Sending ACK to ${peer_addr}:${peer_port}"
 phoenix_log_file "INFO" "peer=${SOCAT_PEERADDR:-none} port=${SOCAT_PEERPORT:-none}"
 
 exit 0

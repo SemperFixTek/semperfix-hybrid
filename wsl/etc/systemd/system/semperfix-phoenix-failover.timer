@@ -1,6 +1,5 @@
 [Unit]
 Description=Phoenix Failover Evaluator Timer
-After=semperfix-phoenix-status-write.service
 
 [Timer]
 OnBootSec=45s

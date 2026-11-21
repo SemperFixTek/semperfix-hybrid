@@ -3,7 +3,7 @@ Description=Phoenix Status Writer Timer
 
 [Timer]
 OnBootSec=30s
-OnUnitActiveSec=60s
+OnUnitActiveSec=30s
 
 Persistent=true
 

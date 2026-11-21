@@ -63,13 +63,13 @@ main() {
         SECONDARY-ACTIVE)
             snapshot_logs
             log "Descalate: SECONDARY-ACTIVE → SECONDARY-PASSIVE via role-switcher"
-            "$role_switch_script" "SECONDARY-PASSIVE"
+            "$role_switch_script" SECONDARY-PASSIVE
             ;;
 
         MASTERZERO-DEGRADED)
             snapshot_logs
             log "Descalate: MASTERZERO-DEGRADED → MASTERZERO-RECOVER via role-switcher"
-            "$role_switch_script" "MASTERZERO-RECOVER"
+            "$role_switch_script" MASTERZERO-RECOVER
             ;;
 
         MASTERZERO-ACTIVE)
