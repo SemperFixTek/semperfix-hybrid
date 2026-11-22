@@ -1,39 +1,23 @@
 {
   "node": {
-<<<<<<< HEAD
-    "role": "SECONDARY-PASSIVE",
-    "hostname": "SECONDARY",
-    "state_dir": "/var/lib/semperfix/state",
-    "log_dir": "/opt/semperfix/logs",
-    "node_ip": "10.10.10.130",
-    "gateway_ip": "10.10.10.1",
-=======
-    "role": "MASTERZERO-RECOVER",
+    "role": "MASTERZERO-ACTIVE",
     "hostname": "MASTERZERO",
     "state_dir": "/var/lib/semperfix/state",
     "log_dir": "/opt/semperfix/logs",
-    "node_ip": "192.168.1.120",
+    "node_ip": "192.168.1.130",
     "gateway_ip": "192.168.1.1",
->>>>>>> afe872928f68e007097657524c79dae8edcd452e
     "dns1": "1.1.1.1",
     "dns2": "1.0.0.1",
     "network_mode": "mirrored"
   },
   "syncthing": {
-<<<<<<< HEAD
-    "api_url": "http://10.10.10.120:8384/rest",
-    "api_key_4_MZ": "6JqzAfmGaxzynG3kUtjPWcjQVH5MgMTf",
-    "api_key": "9jZz6XCt3tbZ6rUUG7E9zHquRsanDH5Q",
-    "peer_ip": "10.10.10.120",
-=======
-    "api_url": "http://192.168.1.130:8384/rest",
+    "api_url": "http://192.168.1.120:8384/rest",
     "api_key": "6JqzAfmGaxzynG3kUtjPWcjQVH5MgMTf",
-    "api_key_4_sc": "9jZz6XCt3tbZ6rUUG7E9zHquRsanDH5Q",
-    "peer_ip": "10.10.10.130",
->>>>>>> afe872928f68e007097657524c79dae8edcd452e
+    "api_key_4_SC": "9jZz6XCt3tbZ6rUUG7E9zHquRsanDH5Q",
+    "peer_ip": "10.10.10.120",
     "peer_port": 22000,
-    "peer_device_id_4_MZ": "F6NBBCH-GW2636Z-LOWXBUZ-33VVRMQ-BY5DUC6-YI5UWTN-6GLLBNW-MBQDIQH",
-    "peer_device_id": "OXFQDIL-5TNBNFX-SWCQOXD-YKI23VN-DAG6MS6-3JNAPOF-ZSPQ4KP-5LHHLAC"
+    "peer_device_id": "F6NBBCH-GW2636Z-LOWXBUZ-33VVRMQ-BY5DUC6-YI5UWTN-6GLLBNW-MBQDIQH",
+    "peer_device_id_4_SC": "OXFQDIL-5TNBNFX-SWCQOXD-YKI23VN-DAG6MS6-3JNAPOF-ZSPQ4KP-5LHHLAC"
   },
   "phoenix": {
     "debug": "0",
