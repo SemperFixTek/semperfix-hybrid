@@ -35,20 +35,9 @@
     "peer_device_id_4_MZ": "F6NBBCH-GW2636Z-LOWXBUZ-33VVRMQ-BY5DUC6-YI5UWTN-6GLLBNW-MBQDIQH",
     "peer_device_id": "OXFQDIL-5TNBNFX-SWCQOXD-YKI23VN-DAG6MS6-3JNAPOF-ZSPQ4KP-5LHHLAC"
   },
-  "mesh": {
-    "#handshake_script": "/opt/semperfix/scripts/mesh-handshake.sh",
-    "#verify_script": "/opt/semperfix/scripts/mesh-verify.sh",
-    "#activate_script": "/opt/semperfix/scripts/mesh-activate.sh",
-    "#status_script": "/opt/semperfix/scripts/wsl-mesh-status.sh"
-  },
   "phoenix": {
     "debug": "0",
     "quic_port": 22001,
-    "#heartbeat_script": "/opt/semperfix/scripts/phoenix-heartbeat.sh",
-    "#status_write_script": "/opt/semperfix/scripts/phoenix-status-write.sh",
-    "#supervisor_script": "/opt/semperfix/scripts/phoenix-supervisor.sh",
-    "#failover_script": "/opt/semperfix/scripts/phoenix-failover.sh",
-    "#descalate_script": "/opt/semperfix/scripts/phoenix-descalate.sh",
     "role_switch_script": "/opt/semperfix/scripts/phoenix-role-switch.sh"
   }
 }
