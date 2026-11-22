@@ -149,11 +149,11 @@
                     "unknown";
 
                 const quic_ok =
-                    node.quic?.quic_reachable ??
+                    node.heartbeat?.quic_ok ??
                     "unknown";
 
                 const meshClass =
-                    mesh_ok === "healthy"
+                    mesh_ok === "true"
                         ? "ok"
                         : "bad";
 
