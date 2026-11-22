@@ -2,8 +2,8 @@
 Description=Phoenix v2.1 Passive Mesh Status Timer
 
 [Timer]
-OnBootSec=15s
-OnUnitActiveSec=15s
+OnBootSec=12s
+OnUnitActiveSec=12s
 Unit=semperfix-mesh-status.service
 
 [Install]

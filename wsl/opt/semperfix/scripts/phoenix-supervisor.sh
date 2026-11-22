@@ -53,16 +53,16 @@ flock -n 200 || {
 # ------------------------------------------------------------
 #
 
-run_handshake() {
-    local handshake_script="/opt/semperfix/scripts/mesh-handshake.sh"
+run_handshake() { 
+   /opt/semperfix/scripts/mesh-handshake.sh || true   
 }
 
-run_verify() {
-    local verify_script="/opt/semperfix/scripts/mesh-verify.sh"
+run_verify() {  
+    /opt/semperfix/scripts/mesh-verify.sh || true
 }
 
 run_activate() {
-    local activate_script="/opt/semperfix/scripts/mesh-activate.sh"
+    /opt/semperfix/scripts/mesh-activate.sh || true
 }
 
 #

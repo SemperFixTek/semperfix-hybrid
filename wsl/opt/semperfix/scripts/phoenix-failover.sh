@@ -288,14 +288,14 @@ main() {
         strikes=0
 
     fi
-
+# Todo  Reconfigure for 2 failed attempts in 120 seconds once we get the rearchitecture figured out
     save_failover_state "$strikes"
 
     log "failover_needed=${failover_needed}"
     log "reason=${reason}"
     log "strikes=${strikes}"
 
-    if (( strikes >= 2 )); then
+    if (( strikes >= 4 )); then
 
         clear_failover_state
 
@@ -303,7 +303,7 @@ main() {
 
     else
 
-        log "Failover not triggered (strikes < 2)"
+        log "Failover not triggered (strikes < 4"
 
     fi
 }
