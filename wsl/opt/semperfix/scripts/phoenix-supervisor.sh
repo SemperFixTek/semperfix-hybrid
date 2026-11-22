@@ -55,20 +55,14 @@ flock -n 200 || {
 
 run_handshake() {
     local handshake_script="/opt/semperfix/scripts/mesh-handshake.sh"
-    # shellcheck disable=SC2154
-    ${handshake_script} || true
 }
 
 run_verify() {
     local verify_script="/opt/semperfix/scripts/mesh-verify.sh"
-    # shellcheck disable=SC2154
-    ${verify_script} || true
 }
 
 run_activate() {
     local activate_script="/opt/semperfix/scripts/mesh-activate.sh"
-    # shellcheck disable=SC2154
-    ${activate_script} || true
 }
 
 #
@@ -82,7 +76,11 @@ read_state_value() {
     local file="$1"
     local key="$2"
 
-    jq -r ".${key} // \"unknown\"" "$file" 2>/dev/null || echo "unknown"
+    if ! jq -r ".${key} // empty" "$file" 2>/dev/null | grep -q .; then
+        echo "unknown"
+    else
+        jq -r ".${key} // empty" "$file" 2>/dev/null
+    fi
 }
 
 get_failover() {
@@ -91,10 +89,7 @@ get_failover() {
     local verify="$2"
     local activate="$3"
 
-    if [[ "$handshake" == "pass" &&
-          "$verify"    == "pass" &&
-          "$activate"  == "pass"
-    ]]
+    if [[ "$handshake" == "pass" && "$verify" == "pass" && "$activate" == "pass" ]];
     then
         echo "not_needed"
     else
@@ -102,7 +97,12 @@ get_failover() {
     fi
 }
 
-ROLE="$NODE_ROLE"
+if [[ -z "${NODE_ROLE:-}" ]]; then
+    log "NODE_ROLE is not set. Defaulting to UNKNOWN."
+    ROLE="UNKNOWN"
+else
+    ROLE="$NODE_ROLE"
+fi
 
 log "Phoenix Supervisor starting for role=${ROLE}"
 
@@ -121,7 +121,8 @@ main() {
 
             run_handshake || true
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             run_verify || true
@@ -136,10 +137,8 @@ main() {
                 read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
 
-            failover_status=$(get_failover \
-                    "$handshake_status" \
-                    "$verify_status" \
-                    "$activate_status"
+            failover_status=$(
+                get_failover "$handshake_status" "$verify_status" "$activate_status"
             )
 
             ;;
@@ -150,23 +149,24 @@ main() {
 
             run_handshake || true
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             run_verify || true
 
-            verify_status=$(read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
+            verify_status=$(
+                read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
             )
 
             run_activate || true
 
-            activate_status=$(read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
+            activate_status=$(
+                read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
 
-            failover_status=$(get_failover \
-                    "$handshake_status" \
-                    "$verify_status" \
-                    "$activate_status"
+            failover_status=$(
+                get_failover "$handshake_status" "$verify_status" "$activate_status"
             )
 
             ;;
@@ -177,7 +177,8 @@ main() {
 
             run_handshake || true
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             verify_status="not_applicable"
@@ -192,7 +193,8 @@ main() {
 
             run_handshake || true
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             verify_status="not_applicable"
