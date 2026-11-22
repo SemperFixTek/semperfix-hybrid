@@ -29,3 +29,4 @@ Devcontainer-lock.json
 Dependabot.yml
 .github
 .github/workflows
+wsl/opt/semperfix/config/phoenix.json
