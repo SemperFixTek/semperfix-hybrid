@@ -68,8 +68,8 @@ export_passive() {
     cp "$TRANS_DIR"/mesh-status.json            "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/phoenix-status.json         "$DEST_DIR"/ 2>/dev/null || true
     cp "$TRANS_DIR"/windows-heartbeat.json      "$DEST_DIR"/ 2>/dev/null || true
-    rm "$TRANS_DIR"/phoenix-supervisor.json                  2>/dev/null || true
     cp "$TRANS_DIR"/phoenix-failover.json       "$DEST_DIR"/ 2>/dev/null || true
+    rm "$TRANS_DIR"/phoenix-supervisor.json                  2>/dev/null || true
     rm "$TRANS_DIR"/mesh-activate.json                       2>/dev/null || true
     rm "$TRANS_DIR"/mesh-verify.json                         2>/dev/null || true
     rm "$TRANS_DIR"/mesh-handshake.json                      2>/dev/null || true
