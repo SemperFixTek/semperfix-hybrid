@@ -121,43 +121,6 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------
-# QUIC responder
-# ---------------------------------------------------------
-
-case "${NODE_ROLE}" in
-
-    "SECONDARY-PASSIVE")
-
-        log "Role=${NODE_ROLE} : QUIC responder required."
-
-        if systemctl is-active --quiet semperfix-quic-responder.service; then
-            log "QUIC responder already active."
-        else
-            log "Starting QUIC responder..."
-            sudo systemctl restart semperfix-quic-responder.service \
-                || log "Responder restart failed."
-        fi
-        ;;
-
-    "SECONDARY-ACTIVE"|"MASTERZERO-ACTIVE"|"MASTERZERO-DEGRADED"|"MASTERZERO-RECOVER"|"OFFSITE")
-
-        log "Role=${NODE_ROLE} : QUIC responder must be disabled."
-
-        sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
-        sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
-        ;;
-
-    *)
-
-        log "Unknown role: ${NODE_ROLE}"
-
-        sudo systemctl stop semperfix-quic-responder.service 2>/dev/null || true
-        sudo systemctl disable semperfix-quic-responder.service 2>/dev/null || true
-        ;;
-
-esac
-
-# ---------------------------------------------------------
 # Export runtime state
 # ---------------------------------------------------------
 

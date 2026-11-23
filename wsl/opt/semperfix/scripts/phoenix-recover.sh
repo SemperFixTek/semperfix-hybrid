@@ -229,7 +229,7 @@ main() {
     # Require 2 consecutive healthy evaluations
     #
 
-    if (( strikes >= 2 )); then
+    if (( strikes >= 1 )); then
 
         clear_recovery_state
 
