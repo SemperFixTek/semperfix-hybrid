@@ -4,7 +4,7 @@
 # Version: Phoenix v2.1
 # Component: phoenix-core
 # Role: All roles (controller/responder/offsite)
-# Refactor: 2026-10-21 — v2.0 → v2.1 role model upgrade + optional features
+# Refactor: 2026-10-21 — v2.1 → v2.2 role model upgrade + optional features
 # Maintainer: SemperFix Automation (Bruce)
 # =====================================================================
 
@@ -18,6 +18,23 @@ CONFIG_DIR="/opt/semperfix/config"
 STATE_DIR="/var/lib/semperfix/state"
 LOG_DIR="/opt/semperfix/logs"
 CONFIG_JSON="${CONFIG_DIR}/phoenix.json"
+
+#
+# Supervisor-owned workflow transaction ID
+#
+# Supervisor generates this value.
+# Workers inherit it.
+# Standalone execution receives:
+#
+# supervisor_cycle="standalone"
+#
+
+if [[ -z "${SUPERVISOR_CYCLE:-}" ]]; then
+    SUPERVISOR_CYCLE="standalone"
+fi
+
+export SUPERVISOR_CYCLE
+
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 # ---------- Logging Helpers ----------
@@ -53,6 +70,25 @@ phoenix_debug() {
     fi
 }
 
+
+phoenix_required_file() {
+
+    local file="$1"
+
+    [[ -f "$file" ]]
+}
+
+phoenix_write_metadata() {
+
+    local file="$1"
+    local worker="$2"
+
+    json_set "$file" "timestamp" "$(date -Iseconds)"
+    json_set "$file" "supervisor_cycle" "${SUPERVISOR_CYCLE:-standalone}"
+    json_set "$file" "worker" "$worker"
+    json_set "$file" "node_role" "$NODE_ROLE"
+}
+
 phoenix_is_stale() {
 
     local file="$1"
@@ -69,14 +105,8 @@ phoenix_is_stale() {
     (( now - modified > max_age ))
 }
 
-phoenix_required_file() {
-
-    local file="$1"
-
-    [[ -f "$file" ]]
-}
-
 # ---------- Load Phoenix Configuration ----------
+
 phoenix_load_config() {
 
     # Load phoenix.json

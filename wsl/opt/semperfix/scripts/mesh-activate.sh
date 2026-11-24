@@ -242,8 +242,7 @@ main() {
 
     json_init "$JSON_OUT"
 
-    json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
-    json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
+    phoenix_write_metadata "$JSON_OUT" "activate"
     json_set "$JSON_OUT" "api_url" "$API_URL"
     json_set "$JSON_OUT" "peer_target" "${PEER_IP}:${PEER_PORT}"
 

@@ -5,7 +5,7 @@
 # Version: Phoenix v2.1
 # Component: phoenix-heartbeat
 # Role: Controller / Responder / Observer (role-aware)
-# Refactor: 2026-11-07 — v2.0 → v2.1.1 role model upgrade
+# Refactor: 2026-11-24 — v2.1 → v2.2 role model upgrade
 # Maintainer: SemperFix Automation (Bruce)
 # Audit 2026-11-07
 # =====================================================================
@@ -78,22 +78,17 @@ check_api() {
 }
 
 check_syncthing_ready() {
-
     jq -r '.myID != null' <<< "$STATUS_JSON_CACHE" 2>/dev/null || echo false
 }
 
 check_quic_listener() {
-
     jq -e '(.connectionServiceStatus["quic://0.0.0.0:${PEER_PORT}"].error) == null
         ' <<< "$STATUS_JSON_CACHE" >/dev/null 2>&1
 }
-
 check_peer_connected() {
-
     local handshake
 
     handshake="${STATE_DIR}/mesh-handshake.json"
-
     if [[ ! -f "$handshake" ]]; then
         echo "unknown"
         return
@@ -103,7 +98,6 @@ check_peer_connected() {
 }
 
 check_mesh_ok() {
-
     local handshake
     local verify
     local activate
@@ -111,11 +105,9 @@ check_mesh_ok() {
     handshake=$(
         read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
     )
-
     verify=$(
         read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
     )
-
     activate=$(
         read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
     )
@@ -200,8 +192,7 @@ main() {
 
     json_init "$HEARTBEAT_FILE"
 
-    json_set "$HEARTBEAT_FILE" "timestamp" "$(date -Iseconds)"
-    json_set "$HEARTBEAT_FILE" "node_role" "$NODE_ROLE"
+    phoenix_write_metadata "$HEARTBEAT_FILE" "heartbeat"
 
     json_set "$HEARTBEAT_FILE" "api_ok" "$api_ok"
     json_set "$HEARTBEAT_FILE" "syncthing_ready" "$syncthing_ready"

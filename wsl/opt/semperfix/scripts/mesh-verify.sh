@@ -31,6 +31,8 @@ PHOENIX_LOGFILE="$LOGFILE"
 
 mkdir -p "$(dirname "$LOCKFILE")"
 
+log() { phoenix_log_file "INFO" "$*"; }
+
 exec 200>"$LOCKFILE"
 
 flock -n 200 || {
@@ -38,7 +40,7 @@ flock -n 200 || {
     exit 0
 }
 
-log() { phoenix_log_file "INFO" "$*"; }
+
 
 api_get() {
 
@@ -117,8 +119,9 @@ main() {
     log "Starting Phoenix Mesh Verify for role: ${NODE_ROLE}"
 
     json_init "$JSON_OUT"
-    json_set "$JSON_OUT" "timestamp" "$(date -Iseconds)"
-    json_set "$JSON_OUT" "node_role" "$NODE_ROLE"
+    
+    phoenix_write_metadata "$JSON_OUT" "verify"
+
     json_set "$JSON_OUT" "api_url" "$API_URL"
 
     local verify_status="fail"

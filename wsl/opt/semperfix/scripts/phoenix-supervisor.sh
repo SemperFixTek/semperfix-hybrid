@@ -2,12 +2,8 @@
 
 # =====================================================================
 # Phoenix Automation Suite — Supervisor
-# Version: Phoenix v2.1
+# Version: Phoenix v2.2
 # Component: phoenix-supervisor
-# Role: Controller / Observer (role-aware)
-# Refactor: 2026-11-08 — v2.0 → v2.1 role model upgrade
-# Maintainer: SemperFix Automation (Bruce)
-# Audit 2026-11-08
 # =====================================================================
 
 set -euo pipefail
@@ -18,6 +14,7 @@ export LANG=C.UTF-8
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 
@@ -34,11 +31,9 @@ log() {
     phoenix_log_file "INFO" "$*"
 }
 
-#
 # ------------------------------------------------------------
 # Locking
 # ------------------------------------------------------------
-#
 
 exec 200>"$LOCKFILE"
 
@@ -47,17 +42,25 @@ flock -n 200 || {
     exit 0
 }
 
-#
+# ------------------------------------------------------------
+# Supervisor Workflow Cycle
+# ------------------------------------------------------------
+
+SUPERVISOR_CYCLE=$(date +%s)
+
+export SUPERVISOR_CYCLE
+
+log "Supervisor cycle=${SUPERVISOR_CYCLE}"
+
 # ------------------------------------------------------------
 # Workers
 # ------------------------------------------------------------
-#
 
-run_handshake() { 
-   /opt/semperfix/scripts/mesh-handshake.sh || true   
+run_handshake() {
+    /opt/semperfix/scripts/mesh-handshake.sh || true
 }
 
-run_verify() {  
+run_verify() {
     /opt/semperfix/scripts/mesh-verify.sh || true
 }
 
@@ -65,11 +68,9 @@ run_activate() {
     /opt/semperfix/scripts/mesh-activate.sh || true
 }
 
-#
 # ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
-#
 
 read_state_value() {
 
@@ -100,6 +101,10 @@ ROLE="$NODE_ROLE"
 
 log "Phoenix Supervisor starting for role=${ROLE}"
 
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
 main() {
 
     local handshake_status="not_applicable"
@@ -113,27 +118,26 @@ main() {
 
             log "$ROLE performing full supervisor cycle"
 
-            run_handshake || true
+            run_handshake
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
-            run_verify || true
+            run_verify
 
             verify_status=$(
                 read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
             )
 
-            run_activate || true
+            run_activate
 
             activate_status=$(
                 read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
 
-            failover_status=$(get_failover \
-                    "$handshake_status" \
-                    "$verify_status" \
-                    "$activate_status"
+            failover_status=$(
+                get_failover "$handshake_status" "$verify_status" "$activate_status"
             )
 
             ;;
@@ -142,25 +146,27 @@ main() {
 
             log "SECONDARY-ACTIVE performing promoted cycle"
 
-            run_handshake || true
+            run_handshake
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
-            run_verify || true
+            run_verify
 
-            verify_status=$(read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
+            verify_status=$(
+                read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
             )
 
-            run_activate || true
+            run_activate
 
-            activate_status=$(read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
+            activate_status=$(
+                read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
 
-            failover_status=$(get_failover \
-                    "$handshake_status" \
-                    "$verify_status" \
-                    "$activate_status"
+            failover_status=$(
+                get_failover \
+                    "$handshake_status" "$verify_status" "$activate_status"
             )
 
             ;;
@@ -169,9 +175,11 @@ main() {
 
             log "SECONDARY-PASSIVE supervisor telemetry"
 
-            run_handshake || true
+            run_handshake
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value \
+                    "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             verify_status="not_applicable"
@@ -184,9 +192,11 @@ main() {
 
             log "OFFSITE limited supervisor cycle"
 
-            run_handshake || true
+            run_handshake
 
-            handshake_status=$(read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
+            handshake_status=$(
+                read_state_value \
+                    "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             verify_status="not_applicable"
@@ -205,8 +215,10 @@ main() {
             failover_status="invalid_role"
 
             ;;
+
     esac
 
+    log "cycle=${SUPERVISOR_CYCLE}"
     log "handshake_status=${handshake_status}"
     log "verify_status=${verify_status}"
     log "activate_status=${activate_status}"
@@ -215,13 +227,13 @@ main() {
     json_init "$SUP_FILE"
 
     json_set "$SUP_FILE" "timestamp" "$(date -Iseconds)"
+    json_set "$SUP_FILE" "supervisor_cycle" "$SUPERVISOR_CYCLE"
     json_set "$SUP_FILE" "node_role" "$ROLE"
-
     json_set "$SUP_FILE" "handshake_status" "$handshake_status"
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
     json_set "$SUP_FILE" "failover_status" "$failover_status"
-
+    
     json_finalize "$SUP_FILE"
 
     /opt/semperfix/scripts/json-perms.sh "$SUP_FILE"

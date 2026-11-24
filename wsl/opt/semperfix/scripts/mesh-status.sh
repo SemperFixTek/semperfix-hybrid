@@ -172,7 +172,7 @@ main() {
     log "Phoenix Mesh Status v2.1.1 role=${NODE_ROLE}"
 
     json_init "$STATUS_JSON"
-
+    phoenix_write_metadata "$STATUS_JSON" "status"
     json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
     json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
 

@@ -76,8 +76,7 @@ write_state() {
 
     json_init "$STATUS_JSON"
 
-    json_set "$STATUS_JSON" "timestamp" "$(date -Iseconds)"
-    json_set "$STATUS_JSON" "node_role" "$NODE_ROLE"
+    phoenix_write_metadata "$STATUS_JSON" "quic_client"
 
     json_set "$STATUS_JSON" "quic_reachable" "$reachable"
     json_set "$STATUS_JSON" "latency_ms" "$latency"
