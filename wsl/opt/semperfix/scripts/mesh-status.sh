@@ -183,26 +183,14 @@ main() {
             check_api || true
             check_connections || true
 
-            json_set \
-                "$STATUS_JSON" \
-                "handshake_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-handshake.json" \
-                    "handshake_status")"
+            json_set "$STATUS_JSON" "handshake_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-handshake.json" "handshake_status")"
 
-            json_set \
-                "$STATUS_JSON" \
-                "verify_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-verify.json" \
-                    "verify_status")"
+            json_set "$STATUS_JSON" "verify_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-verify.json" "verify_status")"
 
-            json_set \
-                "$STATUS_JSON" \
-                "activate_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-activate.json" \
-                    "activate_status")"
+            json_set "$STATUS_JSON" "activate_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-activate.json" "activate_status")"
 
             calculate_status
             ;;
@@ -212,12 +200,8 @@ main() {
             check_api || true
             check_connections || true
 
-            json_set \
-                "$STATUS_JSON" \
-                "handshake_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-handshake.json" \
-                    "handshake_status")"
+            json_set "$STATUS_JSON" "handshake_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-handshake.json" "handshake_status")"
 
             json_set "$STATUS_JSON" "verify_status" "passive"
             json_set "$STATUS_JSON" "activate_status" "passive"
@@ -230,19 +214,11 @@ main() {
             check_api || true
             check_connections || true
 
-            json_set \
-                "$STATUS_JSON" \
-                "handshake_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-handshake.json" \
-                    "handshake_status")"
+            json_set "$STATUS_JSON" "handshake_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-handshake.json" "handshake_status")"
 
-            json_set \
-                "$STATUS_JSON" \
-                "verify_status" \
-                "$(read_state_value \
-                    "${STATE_DIR}/mesh-verify.json" \
-                    "verify_status")"
+            json_set "$STATUS_JSON" "verify_status" "$(read_state_value \
+                    "${STATE_DIR}/mesh-verify.json" "verify_status")"
 
             json_set "$STATUS_JSON" "activate_status" "not_applicable"
 

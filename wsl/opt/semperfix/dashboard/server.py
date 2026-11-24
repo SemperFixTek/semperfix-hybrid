@@ -46,6 +46,7 @@ def cluster():
         "verify": load_json(f"{STATE_DIR}/mesh-verify.json"),
         "activate": load_json(f"{STATE_DIR}/mesh-activate.json"),
         "failover": load_json(f"{STATE_DIR}/phoenix-failover.json"),
+        "recover": load_json(f"{STATE_DIR}/phoenix-recover.json"),
         "windows": load_json(f"{WIN_DIR}/windows-heartbeat.json"),
         "quic": load_json(f"{STATE_DIR}/quic-client-status.json"),
     }

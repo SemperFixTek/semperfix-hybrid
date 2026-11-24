@@ -2,8 +2,8 @@
 Description=Phoenix Supervisor Timer
 
 [Timer]
-OnBootSec=16s
-OnUnitActiveSec=33s
+OnBootSec=10s
+OnUnitActiveSec=15s
 Unit=semperfix-phoenix-supervisor.service
 
 [Install]

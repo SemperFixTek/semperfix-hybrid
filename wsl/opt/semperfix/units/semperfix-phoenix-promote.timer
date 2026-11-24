@@ -3,7 +3,7 @@ Description=Phoenix Promotion Evaluation Timer
 
 [Timer]
 OnBootSec=45s
-OnUnitActiveSec=60s
+OnUnitActiveSec=30s
 
 
 Unit=semperfix-phoenix-promote.service
