@@ -2,12 +2,11 @@
 
 # =====================================================================
 # Phoenix Automation Suite — Heartbeat
-# Version: Phoenix v2.1
+# Version: Phoenix v2.2
 # Component: phoenix-heartbeat
-# Role: Controller / Responder / Observer (role-aware)
-# Refactor: 2026-11-24 — v2.1 → v2.2 role model upgrade
+# Role: Controller / Responder / Observer
+# Refactor: 2026-11-24 — v2.2 workflow architecture
 # Maintainer: SemperFix Automation (Bruce)
-# Audit 2026-11-07
 # =====================================================================
 
 set -euo pipefail
@@ -18,6 +17,7 @@ export LANG=C.UTF-8
 
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-core.sh
+
 # shellcheck disable=SC1091
 source /opt/semperfix/scripts/phoenix-json.sh
 
@@ -31,6 +31,7 @@ LOCKFILE="/run/lock/phoenix-heartbeat.lock"
 PHOENIX_LOGFILE="$LOGFILE"
 
 log() {
+    
     phoenix_log_file "INFO" "$*"
 }
 
@@ -50,23 +51,12 @@ flock -n 200 || {
 # ------------------------------------------------------------
 
 fetch_status() {
-    curl -s --connect-timeout 2 --max-time 5 -H "X-API-Key: ${API_KEY}" \
-        "${API_URL}/system/status" || echo "{}"
+
+    curl -s --connect-timeout 2 --max-time 5 -H "X-API-Key: \
+        ${API_KEY}" "${API_URL}/system/status" || echo "{}"
 }
 
 STATUS_JSON_CACHE="$(fetch_status)"
-
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
-
-read_state_value() {
-
-    local file="$1"
-    local key="$2"
-
-    jq -r ".${key} // \"unknown\"" "$file" 2>/dev/null || echo "unknown"
-}
 
 # ------------------------------------------------------------
 # Health Checks
@@ -78,48 +68,8 @@ check_api() {
 }
 
 check_syncthing_ready() {
-    jq -r '.myID != null' <<< "$STATUS_JSON_CACHE" 2>/dev/null || echo false
-}
 
-check_quic_listener() {
-    jq -e '(.connectionServiceStatus["quic://0.0.0.0:${PEER_PORT}"].error) == null
-        ' <<< "$STATUS_JSON_CACHE" >/dev/null 2>&1
-}
-check_peer_connected() {
-    local handshake
-
-    handshake="${STATE_DIR}/mesh-handshake.json"
-    if [[ ! -f "$handshake" ]]; then
-        echo "unknown"
-        return
-    fi
-
-    jq -r '.handshake_status == "pass"' "$handshake" 2>/dev/null || echo false
-}
-
-check_mesh_ok() {
-    local handshake
-    local verify
-    local activate
-
-    handshake=$(
-        read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
-    )
-    verify=$(
-        read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
-    )
-    activate=$(
-        read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
-    )
-
-    if [[ "$handshake" == "pass" &&
-          "$verify"    == "pass" &&
-          "$activate"  == "pass"
-    ]]; then
-        echo "true"
-    else
-        echo "false"
-    fi
+    jq -r '.myID != null' <<< "$STATUS_JSON_CACHE" 2>/dev/null || echo "false"
 }
 
 # ------------------------------------------------------------
@@ -132,74 +82,18 @@ main() {
 
     local api_ok="false"
     local syncthing_ready="false"
-    local peer_connected="not_applicable"
-    local quic_ok="not_applicable"
-    local mesh_ok="not_applicable"
-    
 
     if check_api; then
         api_ok="true"
     fi
 
-    syncthing_ready=$(check_syncthing_ready)
-
-    case "$NODE_ROLE" in
-
-        MASTERZERO-ACTIVE|MASTERZERO-DEGRADED|MASTERZERO-RECOVER|SECONDARY-ACTIVE)
-
-            peer_connected=$(check_peer_connected)
-
-            if check_quic_listener; then
-                quic_ok="true"
-            else
-                quic_ok="false"
-            fi
-
-            mesh_ok=$(check_mesh_ok)
-            ;;
-
-        SECONDARY-PASSIVE)
-
-            log "Passive heartbeat"
-
-            if systemctl is-active --quiet semperfix-quic-responder.service
-            then
-                quic_ok="true"
-            else
-                quic_ok="false"
-            fi
-
-            peer_connected=$(check_peer_connected)
-
-            mesh_ok="not_applicable"
-            ;;
-
-        OFFSITE)
-
-            log "OFFSITE heartbeat"
-
-            peer_connected="not_applicable"
-            quic_ok="not_applicable"
-            mesh_ok="not_applicable"
-            ;;
-
-        *)
-
-            log "Unknown role: ${NODE_ROLE}"
-            ;;
-
-    esac
+    syncthing_ready="$(check_syncthing_ready)"
 
     json_init "$HEARTBEAT_FILE"
 
     phoenix_write_metadata "$HEARTBEAT_FILE" "heartbeat"
-
     json_set "$HEARTBEAT_FILE" "api_ok" "$api_ok"
     json_set "$HEARTBEAT_FILE" "syncthing_ready" "$syncthing_ready"
-    json_set "$HEARTBEAT_FILE" "peer_connected" "$peer_connected"
-    json_set "$HEARTBEAT_FILE" "quic_ok" "$quic_ok"
-    json_set "$HEARTBEAT_FILE" "mesh_ok" "$mesh_ok"
-
     json_finalize "$HEARTBEAT_FILE"
 
     /opt/semperfix/scripts/json-perms.sh "$HEARTBEAT_FILE"

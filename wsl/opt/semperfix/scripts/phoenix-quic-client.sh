@@ -101,5 +101,5 @@ latency="${result##*:}"
 log "QUIC=${quic_ok} Latency=${latency}ms"
 
 write_state "$quic_ok" "$latency"
-
+log "state written to ${STATUS_JSON}"
 exit 0
