@@ -93,7 +93,7 @@ write_state() {
 log "Phoenix QUIC Client running once (${NODE_ROLE})"
 log "Target: ${QUIC_IP}:${QUIC_PORT}"
 
-result="$(probe_quic)"
+result="$(probe_quic || echo "false:-1")"
 
 quic_ok="${result%%:*}"
 latency="${result##*:}"

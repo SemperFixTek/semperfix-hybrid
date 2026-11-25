@@ -68,6 +68,7 @@ run_activate() {
     /opt/semperfix/scripts/mesh-activate.sh || true
 }
 
+
 # ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
@@ -77,7 +78,42 @@ read_state_value() {
     local file="$1"
     local key="$2"
 
-    jq -r ".${key} // \"unknown\"" "$file" 2>/dev/null || echo "unknown"
+    jq -r \
+        ".${key} // \"unknown\"" "$file" 2>/dev/null || echo "unknown"
+}
+
+validate_worker_cycle() {
+
+    local file="$1"
+    local worker="$2"
+
+    local cycle
+
+    if [[ ! -f "$file" ]]; then
+
+        log "${worker} output missing"
+
+        return 1
+
+    fi
+
+    cycle=$(
+        jq -r '.supervisor_cycle // empty' "$file" 2>/dev/null
+    )
+
+    if [[ "$cycle" != "$SUPERVISOR_CYCLE" ]]; then
+
+        log "${worker} cycle mismatch"
+
+        log "Expected=${SUPERVISOR_CYCLE}"
+
+        log "Actual=${cycle:-missing}"
+
+        return 1
+
+    fi
+
+    return 0
 }
 
 get_failover() {
@@ -120,18 +156,21 @@ main() {
 
             run_handshake
 
+            validate_worker_cycle "${STATE_DIR}/mesh-handshake.json" "handshake" || true
             handshake_status=$(
                 read_state_value "${STATE_DIR}/mesh-handshake.json" "handshake_status"
             )
 
             run_verify
 
+            validate_worker_cycle "${STATE_DIR}/mesh-verify.json" "verify" || true              
             verify_status=$(
                 read_state_value "${STATE_DIR}/mesh-verify.json" "verify_status"
             )
 
             run_activate
 
+            validate_worker_cycle "${STATE_DIR}/mesh-activate.json" "activate" || true
             activate_status=$(
                 read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
