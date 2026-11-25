@@ -30,3 +30,4 @@ Dependabot.yml
 .github
 .github/workflows
 /mnt/c/semperfix/Git/repos/semperfix-hybrid/wsl/opt/semperfix/config/phoenix.json
+/opt/semperfix/config/phoenix.json
