@@ -92,7 +92,7 @@ _sfx-deploy_completions() {
 
     # Suggest flags if typing '-'
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--dry-run -n" -- "$cur") )
+        mapfile -t COMPREPLY < <(compgen -W "--dry-run -n" -- "$cur")
         return 0
     fi
 
@@ -100,7 +100,7 @@ _sfx-deploy_completions() {
     if [ -d "$src" ]; then
         local dirs
         dirs=$(find "$src" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | grep -vxE 'state|reports')
-        COMPREPLY=( $(compgen -W "$dirs logs --dry-run" -- "$cur") )
+        mapfile -t COMPREPLY < <(compgen -W "$dirs logs --dry-run" -- "$cur")
     fi
 }
 complete -F _sfx-deploy_completions sfx-deploy
