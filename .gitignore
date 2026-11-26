@@ -11,7 +11,6 @@ Zone.Identifier
 
 # WSL metadata and backups
 *.bak
-*.old
 
 # Logs
 *.log
