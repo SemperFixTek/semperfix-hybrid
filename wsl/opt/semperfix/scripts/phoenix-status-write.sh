@@ -69,7 +69,8 @@ safe_exists() {
 
     local file="$1"
 
-    if [[ -f "$file" ]]; then
+    if [[ -f "$file" ]]; 
+    then
         echo "true"
     else
         echo "false"
@@ -91,10 +92,7 @@ compute_mesh_ok() {
     activate=$(safe_field "$SUP_JSON" '.activate_status'
     )
 
-    if [[ "$handshake" == "pass" &&
-          "$verify"    == "pass" &&
-          "$activate"  == "pass"
-    ]]
+    if [[ "$handshake" == "pass" && "$verify" == "pass" && "$activate"  == "pass" ]];
     then
         echo "true"
     else
@@ -114,11 +112,7 @@ get_failover_state() {
 
     local state
 
-    state=$(
-        safe_field \
-            "$SUP_JSON" \
-            '.failover_status'
-    )
+    state=$(safe_field "$SUP_JSON" '.failover_status')
 
     case "$state" in
 

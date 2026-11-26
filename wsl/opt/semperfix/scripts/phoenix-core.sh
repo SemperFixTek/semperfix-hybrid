@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # =====================================================================
 # Phoenix Automation Suite — Core Loader
-# Version: Phoenix v2.1
+# Version: Phoenix v2.2
 # Component: phoenix-core
 # Role: All roles (controller/responder/offsite)
-# Refactor: 2026-10-21 — v2.1 → v2.2 role model upgrade + optional features
+# Refactor: 2026-11-26 — v2.1 → v2.2 role model upgrade + optional features
 # Maintainer: SemperFix Automation (Bruce)
 # =====================================================================
+
+[[ -n "${PHOENIX_CORE_LOADED:-}" ]] && return 0
+readonly PHOENIX_CORE_LOADED=1
 
 set -euo pipefail
 

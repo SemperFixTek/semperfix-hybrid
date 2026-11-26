@@ -68,12 +68,16 @@ run_activate() {
     /opt/semperfix/scripts/mesh-activate.sh || true
 }
 
-#run_heartbeat() {
-#    /opt/semperfix/scripts/phoenix-heartbeat.sh || true
-#}
+run_heartbeat() {
+    /opt/semperfix/scripts/phoenix-heartbeat.sh || true
+}
 
 run_quic() {
     /opt/semperfix/scripts/phoenix-quic-client.sh || true
+}
+
+run_mesh_status() {
+    /opt/semperfix/scripts/mesh-status.sh || true
 }
 
 
@@ -152,8 +156,9 @@ main() {
     local verify_status="not_applicable"
     local activate_status="not_applicable"
     local failover_status="not_applicable"
-#    local heartbeat_status="not_applicable"
+    local heartbeat_status="not_applicable"
     local quic_status="not_applicable"
+    local mesh_status="not_applicable"
 
     case "$ROLE" in
 
@@ -179,17 +184,24 @@ main() {
                 read_state_value "${STATE_DIR}/mesh-activate.json" "activate_status"
             )
 
-#            run_heartbeat
-#            validate_worker_cycle "${STATE_DIR}/phoenix-heartbeat.json" "activate" || true
-#            heartbeat_status=$(
-#                read_state_value "${STATE_DIR}/phoenix-heartbeat.json" "heartbeat_status"
-#            )
+            run_heartbeat
+            validate_worker_cycle "${STATE_DIR}/phoenix-heartbeat.json" "activate" || true
+            heartbeat_status=$(
+                read_state_value "${STATE_DIR}/phoenix-heartbeat.json" "heartbeat_status"
+            )
 
             run_quic
             validate_worker_cycle "${STATE_DIR}/quic-client-status.json" "quic" || true
             quic_status=$(
                 read_state_value "${STATE_DIR}/quic-client-status.json" "quic_status"
             )
+
+            run_mesh_status
+            validate_worker_cycle "${STATE_DIR}/mesh-status.json" "mesh" || true
+            mesh_status=$(
+                read_state_value "${STATE_DIR}/mesh-status.json" "overall_status"
+            )
+            
 
             failover_status=$(
                 get_failover "$handshake_status" "$verify_status" "$activate_status"
@@ -272,8 +284,9 @@ main() {
     log "verify_status=${verify_status}"
     log "activate_status=${activate_status}"
     log "failover_status=${failover_status}"
-#    log "heartbeat_status=${heartbeat_status}"
+    log "heartbeat_status=${heartbeat_status}"
     log "quic_status=${quic_status}"
+    log "mesh_status=${mesh_status}"
     json_init "$SUP_FILE"
 
     json_set "$SUP_FILE" "timestamp" "$(date -Iseconds)"
@@ -283,8 +296,9 @@ main() {
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
     json_set "$SUP_FILE" "failover_status" "$failover_status"
-#    json_set "$SUP_FILE" "heartbeat_status" "$heartbeat_status"
+    json_set "$SUP_FILE" "heartbeat_status" "$heartbeat_status"
     json_set "$SUP_FILE" "quic_status" "$quic_status"
+    json_set "$SUP_FILE" "mesh_status" "$mesh_status"
     json_finalize "$SUP_FILE"
 
     /opt/semperfix/scripts/json-perms.sh "$SUP_FILE"
