@@ -2,7 +2,18 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../../../../../../opt/semperfix"
+		},
+		{
+			"path": "../../../../../../var/lib/semperfix/state"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"git.ignoredRepositories": [
+			"/opt/semperfix",
+			"/opt/semperfix/semperfix-hybrid/semperfix"
+		]
+	}
 }
