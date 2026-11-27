@@ -164,24 +164,78 @@ write_status() {
 
     local freshness_valid
 
-    freshness_valid=$(
-        validate_freshness
-    )
+#
+# Freshness Validation
+#
 
-    validate_schema "$HB_JSON"
-    validate_schema "$HANDSHAKE_JSON"
-    validate_schema "$VERIFY_JSON"
-    validate_schema "$ACTIVATE_JSON"
-    validate_schema "$QUIC_JSON"
-    validate_schema "$SUP_JSON"
+freshness_valid="true"
 
-    validate_cycles
+if ! freshness_valid=$(validate_freshness); then
+
+    freshness_valid="false"
+
+    log "Freshness validation failed"
+
+fi
+
+#
+# Schema Validation
+#
+
+schema_valid="true"
+
+for file in \
+    "$HB_JSON" \
+    "$HANDSHAKE_JSON" \
+    "$VERIFY_JSON" \
+    "$ACTIVATE_JSON" \
+    "$QUIC_JSON" \
+    "$SUP_JSON"
+do
+
+    if ! validate_schema "$file"; then
+
+        schema_valid="false"
+
+        log "Schema validation failed: $file"
+
+    fi
+
+done
+
+#
+# Schema failure remains fatal
+#
+
+if [[ "$schema_valid" != "true" ]]; then
+
+    log "Fatal schema validation failure"
+
+    exit 1
+
+fi
+
+#
+# Cycle Validation
+#
+
+cycle_valid="true"
+
+if ! validate_cycles; then
+
+    cycle_valid="false"
+
+    log "Cycle validation failed"
+
+fi
 
     local supervisor_cycle
 
     supervisor_cycle=$(
         get_cycle "$SUP_JSON"
     )
+
+    export SUPERVISOR_CYCLE="$supervisor_cycle"
 
     json_init "$STATUS_FILE"
 
@@ -192,10 +246,14 @@ write_status() {
         --arg version "2.2" \
         --arg cycle "$supervisor_cycle" \
         --arg freshness "$freshness_valid" \
+        --arg schema "$schema_valid" \
+        --arg cycle_valid "$cycle_valid" \
         '{
             version:$version,
             supervisor_cycle:$cycle,
-            freshness_valid:$freshness
+            freshness_valid:$freshness,
+            schema_valid:$schema,
+            cycle_valid:$cycle_valid
         }'
     )"
 
