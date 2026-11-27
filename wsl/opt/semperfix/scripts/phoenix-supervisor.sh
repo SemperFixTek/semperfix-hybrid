@@ -287,11 +287,10 @@ main() {
     log "heartbeat_status=${heartbeat_status}"
     log "quic_status=${quic_status}"
     log "mesh_status=${mesh_status}"
+    
     json_init "$SUP_FILE"
-
-    json_set "$SUP_FILE" "timestamp" "$(date -Iseconds)"
+    phoenix_write_metadata "$SUP_FILE" "supervisor"
     json_set "$SUP_FILE" "supervisor_cycle" "$SUPERVISOR_CYCLE"
-    json_set "$SUP_FILE" "node_role" "$ROLE"
     json_set "$SUP_FILE" "handshake_status" "$handshake_status"
     json_set "$SUP_FILE" "verify_status" "$verify_status"
     json_set "$SUP_FILE" "activate_status" "$activate_status"
