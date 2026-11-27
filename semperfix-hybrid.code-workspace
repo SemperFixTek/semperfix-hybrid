@@ -4,10 +4,10 @@
 			"path": "."
 		},
 		{
-			"path": "../../../../../../opt/semperfix"
+			"path": "../../../../../../var/lib/semperfix/state"
 		},
 		{
-			"path": "../../../../../../var/lib/semperfix/state"
+			"path": "../../../../../../opt/semperfix"
 		}
 	],
 	"settings": {
