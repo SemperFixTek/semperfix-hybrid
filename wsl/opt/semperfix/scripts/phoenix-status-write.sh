@@ -2,10 +2,10 @@
 
 # =====================================================================
 # Phoenix Automation Suite — Status Writer
-# Version: Phoenix v2.1
+# Version: Phoenix v2.2
 # Component: wsl-phoenix-status-write
 # Role: All roles (controller/responder/offsite)
-# Refactor: 2026-11-09 — v2.1 → v2.1.1 role model upgrade
+# Refactor: 2026-11-26 — v2.1 → v2.2 rearchitecture
 # Maintainer: SemperFix Automation (Bruce)
 #
 # Philosophy:
@@ -28,17 +28,14 @@ source /opt/semperfix/scripts/phoenix-json.sh
 
 phoenix_init
 
-# ---------------------------------------------------------------------
-# Files
-# ---------------------------------------------------------------------
-
 STATUS_FILE="${STATE_DIR}/phoenix-status.json"
 
 HB_JSON="${STATE_DIR}/phoenix-heartbeat.json"
-SUP_JSON="${STATE_DIR}/phoenix-supervisor.json"
-FAIL_JSON="${STATE_DIR}/phoenix-failover.json"
-MESH_JSON="${STATE_DIR}/mesh-status.json"
+HANDSHAKE_JSON="${STATE_DIR}/mesh-handshake.json"
+VERIFY_JSON="${STATE_DIR}/mesh-verify.json"
+ACTIVATE_JSON="${STATE_DIR}/mesh-activate.json"
 QUIC_JSON="${STATE_DIR}/quic-client-status.json"
+SUP_JSON="${STATE_DIR}/phoenix-supervisor.json"
 
 # shellcheck disable=SC2034
 PHOENIX_LOGFILE="${LOG_DIR}/phoenix-status.log"
@@ -47,241 +44,224 @@ log() {
     phoenix_log_file "INFO" "$*"
 }
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
-
 safe_field() {
 
     local file="$1"
     local field="$2"
 
-    [[ -f "$file" ]] || { 
+    [[ -f "$file" ]] || {
         echo "not_available"
         return
     }
 
-    jq -r "$field // \"not_available\"" \
-        "$file" 2>/dev/null || echo "not_available"
+    jq -r \
+        "$field // \"not_available\"" \
+        "$file" \
+        2>/dev/null ||
+        echo "not_available"
 }
 
-safe_exists() {
+get_cycle() {
 
     local file="$1"
 
-    if [[ -f "$file" ]]; 
-    then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
-compute_mesh_ok() {
-
-    local handshake
-    local verify
-    local activate
-
-    handshake=$(safe_field "$SUP_JSON" '.handshake_status'
-    )
-
-    verify=$(safe_field "$SUP_JSON" '.verify_status'
-    )
-
-    activate=$(safe_field "$SUP_JSON" '.activate_status'
-    )
-
-    if [[ "$handshake" == "pass" && "$verify" == "pass" && "$activate"  == "pass" ]];
-    then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
-validate_output() {
-
-    jq . "$STATUS_FILE" >/dev/null 2>&1 || {
-        log "Generated invalid JSON"
-        return 1
+    [[ -f "$file" ]] || {
+        echo "missing"
+        return
     }
+
+    jq -r \
+        '.supervisor_cycle // "missing"' \
+        "$file" \
+        2>/dev/null ||
+        echo "missing"
 }
 
-get_failover_state() {
+validate_schema() {
 
-    local state
+    local file="$1"
 
-    state=$(safe_field "$SUP_JSON" '.failover_status')
-
-    case "$state" in
-
-        needed)
-            echo "needed"
-            ;;
-
-        not_needed)
-            echo "not_needed"
-            ;;
-
-        *)
-            #
-            # Fail closed to safe operational state.
-            #
-            echo "not_needed"
-            ;;
-
-    esac
+    jq -e '
+        .worker and
+        .supervisor_cycle and
+        .timestamp
+    ' "$file" >/dev/null 2>&1
 }
 
-# ---------------------------------------------------------------------
-# Authoritative Role
-# ---------------------------------------------------------------------
+validate_cycles() {
 
-ROLE="$NODE_ROLE"
+    local expected
 
-log "Writing status for role=${ROLE}"
+    expected=$(
+        get_cycle "$SUP_JSON"
+    )
 
-# ---------------------------------------------------------------------
-# Status Writer
-# ---------------------------------------------------------------------
+    local files=(
+        "$HB_JSON"
+        "$HANDSHAKE_JSON"
+        "$VERIFY_JSON"
+        "$ACTIVATE_JSON"
+        "$QUIC_JSON"
+    )
+
+    local file
+    local actual
+
+    for file in "${files[@]}"
+    do
+
+        actual=$(get_cycle "$file")
+
+        if [[ "$actual" != "$expected" ]]
+        then
+
+            log "Cycle mismatch"
+
+            log "Expected=${expected}"
+
+            log "Actual=${actual}"
+
+            log "File=${file}"
+
+            return 1
+
+        fi
+
+    done
+
+    return 0
+}
+
+validate_freshness() {
+
+    local freshness="true"
+
+    local files=(
+        "$HB_JSON"
+        "$HANDSHAKE_JSON"
+        "$VERIFY_JSON"
+        "$ACTIVATE_JSON"
+        "$QUIC_JSON"
+        "$SUP_JSON"
+    )
+
+    local file
+
+    for file in "${files[@]}"
+    do
+
+        if phoenix_is_stale "$file" 300
+        then
+            freshness="false"
+        fi
+
+    done
+
+    echo "$freshness"
+}
 
 write_status() {
 
-    local timestamp
+    local freshness_valid
 
-    timestamp="$(date -Iseconds)"
+    freshness_valid=$(
+        validate_freshness
+    )
+
+    validate_schema "$HB_JSON"
+    validate_schema "$HANDSHAKE_JSON"
+    validate_schema "$VERIFY_JSON"
+    validate_schema "$ACTIVATE_JSON"
+    validate_schema "$QUIC_JSON"
+    validate_schema "$SUP_JSON"
+
+    validate_cycles
+
+    local supervisor_cycle
+
+    supervisor_cycle=$(
+        get_cycle "$SUP_JSON"
+    )
 
     json_init "$STATUS_FILE"
 
-    # -------------------------------------------------------------
-    # Meta
-    # -------------------------------------------------------------
+    phoenix_write_metadata "$STATUS_FILE" "status"
 
     json_set_raw "$STATUS_FILE" "meta" "$(
         jq -n \
-            --arg version "2.1.1" \
-            --arg writer "phoenix-status" \
-            --arg timestamp "$timestamp" \
-            '{
-                version:$version,
-                generated_by:$writer,
-                timestamp:$timestamp
-            }'
+        --arg version "2.2" \
+        --arg cycle "$supervisor_cycle" \
+        --arg freshness "$freshness_valid" \
+        '{
+            version:$version,
+            supervisor_cycle:$cycle,
+            freshness_valid:$freshness
+        }'
     )"
-
-    # -------------------------------------------------------------
-    # Node
-    # -------------------------------------------------------------
-
-    json_set_raw "$STATUS_FILE" "node" "$(
-        jq -n \
-            --arg role "$ROLE" \
-            --arg api "${API_URL}" \
-            --arg peer "${PEER_IP}:${PEER_PORT}" \
-            '{
-                role:$role,
-                api_url:$api,
-                peer_target:$peer
-            }'
-    )"
-
-    # -------------------------------------------------------------
-    # Heartbeat
-    # -------------------------------------------------------------
 
     json_set_raw "$STATUS_FILE" "heartbeat" "$(
         jq -n \
-            --arg file_present "$(safe_exists "$HB_JSON")" \
-            --arg heartbeat_ok "$(safe_field "$HB_JSON" '.heartbeat_ok')" \
-            --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
-            --arg peer_connected "$(safe_field "$HB_JSON" '.peer_connected')" \
-            --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
-            --arg quic_ok "$(safe_field "$HB_JSON" '.quic_ok')" \
-            '{
-                file_present:$file_present,
-                heartbeat_ok:$heartbeat_ok,
-                api_ok:$api_ok,
-                peer_connected:$peer_connected,
-                syncthing_ready:$syncthing_ready,
-                quic_ok:$quic_ok
-            }'
+        --arg api_ok "$(safe_field "$HB_JSON" '.api_ok')" \
+        --arg syncthing_ready "$(safe_field "$HB_JSON" '.syncthing_ready')" \
+        '{
+            api_ok:$api_ok,
+            syncthing_ready:$syncthing_ready
+        }'
     )"
 
-    # -------------------------------------------------------------
-    # Supervisor
-    # -------------------------------------------------------------
-
-    json_set_raw "$STATUS_FILE" "supervisor" "$(
+    json_set_raw "$STATUS_FILE" "handshake" "$(
         jq -n \
-            --arg file_present "$(safe_exists "$SUP_JSON")" \
-            --arg handshake "$(safe_field "$SUP_JSON" '.handshake_status')" \
-            --arg verify "$(safe_field "$SUP_JSON" '.verify_status')" \
-            --arg activate "$(safe_field "$SUP_JSON" '.activate_status')" \
-            --arg failover "$(safe_field "$SUP_JSON" '.failover_status')" \
-            '{
-                file_present:$file_present,
-                handshake_status:$handshake,
-                verify_status:$verify,
-                activate_status:$activate,
-                failover_status:$failover
-            }'
+        --arg status "$(safe_field "$HANDSHAKE_JSON" '.handshake_status')" \
+        '{
+            status:$status
+        }'
     )"
 
-    # -------------------------------------------------------------
-    # QUIC
-    # -------------------------------------------------------------
+    json_set_raw "$STATUS_FILE" "verify" "$(
+        jq -n \
+        --arg status "$(safe_field "$VERIFY_JSON" '.verify_status')" \
+        '{
+            status:$status
+        }'
+    )"
+
+    json_set_raw "$STATUS_FILE" "activate" "$(
+        jq -n \
+        --arg status "$(safe_field "$ACTIVATE_JSON" '.activate_status')" \
+        '{
+            status:$status
+        }'
+    )"
 
     json_set_raw "$STATUS_FILE" "quic" "$(
         jq -n \
-            --arg file_present "$(safe_exists "$QUIC_JSON")" \
-            --arg reachable "$(safe_field "$QUIC_JSON" '.quic_reachable')" \
-            --arg latency "$(safe_field "$QUIC_JSON" '.latency_ms')" \
-            '{
-                file_present:$file_present,
-                reachable:$reachable,
-                latency_ms:$latency
-            }'
-    )"
-
-    # -------------------------------------------------------------
-    # Mesh
-    # -------------------------------------------------------------
-
-    json_set_raw "$STATUS_FILE" "mesh" "$(
-        jq -n \
-            --arg file_present "$(safe_exists "$MESH_JSON")" \
-            --arg mesh_ok "$(compute_mesh_ok)" \
-            '{
-                file_present:$file_present,
-                mesh_ok:$mesh_ok
-            }'
-    )"
-
-    # -------------------------------------------------------------
-    # Failover
-    # -------------------------------------------------------------
-
-    json_set_raw "$STATUS_FILE" "failover" "$(
-    jq -n \
-        --arg file_present "$(safe_exists "$FAIL_JSON")" \
-        --arg state "$(get_failover_state)" \
+        --arg reachable "$(safe_field "$QUIC_JSON" '.quic_reachable')" \
+        --arg latency "$(safe_field "$QUIC_JSON" '.latency_ms')" \
         '{
-            file_present:$file_present,
-            state:$state
+            reachable:$reachable,
+            latency_ms:$latency
         }'
-)"
+    )"
+
+    json_set_raw "$STATUS_FILE" "supervisor" "$(
+        jq -n \
+        --arg handshake "$(safe_field "$SUP_JSON" '.handshake_status')" \
+        --arg verify "$(safe_field "$SUP_JSON" '.verify_status')" \
+        --arg activate "$(safe_field "$SUP_JSON" '.activate_status')" \
+        --arg failover "$(safe_field "$SUP_JSON" '.failover_status')" \
+        '{
+            handshake_status:$handshake,
+            verify_status:$verify,
+            activate_status:$activate,
+            failover_status:$failover
+        }'
+    )"
 
     json_finalize "$STATUS_FILE"
 
-if ! validate_output; then
-    log "Generated invalid phoenix-status.json"
-    exit 1
-fi
+    /opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"
 
-/opt/semperfix/scripts/json-perms.sh "$STATUS_FILE"
-
-    log "Phoenix status written to ${STATUS_FILE}"
+    log "Phoenix status written"
 }
 
 write_status
