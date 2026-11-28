@@ -183,6 +183,7 @@ start_units() {
 # Common unit sets
 
 COMMON_CONTROLLER_UNITS=(
+    semperfix-dashboard.service
     semperfix-network-normalizer.service
     semperfix-inotify-monitor.service
     semperfix-phoenix-supervisor.timer
@@ -266,7 +267,8 @@ case "$NEW_ROLE" in
             semperfix-phoenix-descalate.timer \
             semperfix-phoenix-supervisor.timer \
             semperfix-quic-client.timer \
-            semperfix-state-mirror-secondary.timer
+            semperfix-state-mirror-secondary.timer \
+            semperfix-dashboard.service
 
         start_units \
             semperfix-phoenix-promote.timer \
@@ -281,6 +283,7 @@ case "$NEW_ROLE" in
 
     OFFSITE)
         stop_units \
+            semperfix-dashboard.service \
             semperfix-phoenix-failover.timer \
             semperfix-phoenix-recover.timer \
             semperfix-phoenix-recover.service \
